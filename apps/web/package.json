@@ -1,0 +1,28 @@
+{
+  "name": "@insedu/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"(pruebas E2E en E1-F1)\""
+  },
+  "dependencies": {
+    "@insedu/domain": "workspace:*",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
+    "@insedu/persistence": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.2"
+  }
+}

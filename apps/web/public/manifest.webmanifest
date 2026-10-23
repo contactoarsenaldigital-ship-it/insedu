@@ -1,0 +1,20 @@
+{
+  "name": "INSEDU · Acompañamiento integral del estudiante",
+  "short_name": "INSEDU",
+  "description": "Plataforma escolar: asistencia, notas, convivencia, bienestar y reconocimiento del progreso.",
+  "lang": "es-CL",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Escanear credenciales", "url": "/escanear" },
+    { "name": "Copiloto Docente", "url": "/copiloto" }
+  ]
+}

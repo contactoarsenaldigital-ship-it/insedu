@@ -1,0 +1,18 @@
+// API pública del dominio, segura para cliente y servidor (sin node:crypto).
+export * from "./types";
+export * from "./rut";
+export * from "./attendance";
+export * from "./reinforcement";
+export * from "./alerts";
+export * from "./analytics";
+export * from "./mineduc-export";
+export * from "./safeguarding/policy";
+export * from "./ai/gateway";
+export * from "./ai/copilot";
+export { generateSchool, weekdays, mulberry32, SUBJECTS, type SyntheticSchool } from "./synthetic/generator";
+export * from "./ids";
+export * from "./gradebook";
+export * from "./permissions";
+export * from "./safeguarding/protocols";
+export * from "./rewards";
+export * from "./messaging";
