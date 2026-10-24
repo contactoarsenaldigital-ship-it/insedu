@@ -14,6 +14,8 @@ export function aiGateway(): AiGateway {
     dataMode: (process.env.INSEDU_DATA_MODE as DataMode) || "synthetic",
     perUserPerMinute: 5,
     perUserPerDay: 60,
+    // En la demostración varios visitantes comparten los mismos usuarios ficticios.
+    totalPerDay: Number(process.env.AI_DAILY_LIMIT) || 100,
   });
   return gateway;
 }

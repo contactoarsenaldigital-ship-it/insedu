@@ -5,6 +5,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   // La cámara solo se usa en el escáner de credenciales del propio sitio.
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+  // Maqueta privada: que los buscadores no la indexen.
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
 ];
 
 const nextConfig = {

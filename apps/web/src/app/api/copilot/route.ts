@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { AiBlockedError, buildCopilotRequest, type CopilotInput } from "@insedu/domain";
 import { aiGateway } from "@/lib/ai";
 import { fullName, school } from "@/lib/demo";
+import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 
 const KINDS: CopilotInput["kind"][] = ["guia", "prueba", "rubrica", "planificacion"];
 
 export async function POST(req: Request) {
   await readState();
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Ingrese como docente para usar el Copiloto." }, { status: 401 });
+  if (!session.person.roles.includes("teacher")) {
+    return NextResponse.json({ error: "El Copiloto está disponible solo para docentes." }, { status: 403 });
+  }
   const body = (await req.json().catch(() => null)) as Partial<CopilotInput> | null;
   if (!body || !KINDS.includes(body.kind as CopilotInput["kind"]) || !body.subject || !body.level || !body.objective) {
     return NextResponse.json({ error: "Complete tipo, asignatura, nivel y objetivo." }, { status: 400 });
@@ -27,7 +33,7 @@ export async function POST(req: Request) {
     const out = await aiGateway().run({
       task: built.task,
       tenantId: school().tenantId,
-      userId: "teacher-demo", // E1-F1: usuario de la sesión autenticada
+      userId: session.person.id,
       role: "teacher",
       system: built.system,
       prompt: built.prompt,

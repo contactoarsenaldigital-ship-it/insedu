@@ -68,9 +68,13 @@ postgresql://postgres.abcdefghijk:SU_CLAVE@aws-0-sa-east-1.pooler.supabase.com:6
 | `AI_TIER` | `free` |
 | `GEMINI_API_KEY` | Su API key de Google AI Studio (opcional: sin ella el Copiloto funciona en modo demostración) |
 | `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `AI_DAILY_LIMIT` | `100` (opcional: tope diario de solicitudes al Copiloto, sumando todos los usuarios) |
 
-   Si no tiene `openssl`, en PowerShell puede generar una llave con:
-   `[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))`
+   Si no tiene `openssl`, en PowerShell puede generar cada llave (sirve para `VAULT_MASTER_KEY` y para
+   `INSEDU_SESSION_SECRET`) con un generador criptográfico:
+   `$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)`
+
+   No use `Get-Random`: no es un generador seguro para llaves.
 
 4. **Deploy.** La región de las funciones queda en São Paulo (`apps/web/vercel.json`), junto a Supabase.
 

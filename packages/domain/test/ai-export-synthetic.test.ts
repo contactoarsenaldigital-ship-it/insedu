@@ -44,6 +44,13 @@ describe("AI Gateway", () => {
     await expect(g.run(req())).rejects.toMatchObject({ code: "QUOTA_MINUTE" });
   });
 
+  it("aplica un tope diario total aunque cambie el usuario", async () => {
+    const g = new AiGateway(new EchoProvider(), { tier: "free", dataMode: "synthetic", perUserPerMinute: 5, perUserPerDay: 50, totalPerDay: 2 });
+    await g.run(req({ userId: "u1" }));
+    await g.run(req({ userId: "u2" }));
+    await expect(g.run(req({ userId: "u3" }))).rejects.toMatchObject({ code: "QUOTA_TOTAL_DAY" });
+  });
+
   it("construye solicitudes del Copiloto con versión de prompt", () => {
     const r = buildCopilotRequest({ kind: "prueba", subject: "Matemática", level: "7° Básico", objective: "OA 3", items: 8 });
     expect(r.task).toBe("generate.assessment");

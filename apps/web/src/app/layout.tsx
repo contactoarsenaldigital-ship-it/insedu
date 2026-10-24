@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
   appleWebApp: { capable: true, title: "INSEDU", statusBarStyle: "black-translucent" },
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

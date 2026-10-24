@@ -72,6 +72,8 @@ export type GatewayConfig = {
   dataMode: DataMode;
   perUserPerMinute: number;
   perUserPerDay: number;
+  /** Tope diario para toda la instancia, sin importar el usuario (protege la cuota del proveedor). */
+  totalPerDay?: number;
   /** Interruptor remoto por establecimiento o función. */
   disabledTasks?: AiTask[];
 };
@@ -82,6 +84,7 @@ export type UsageLog = Omit<AiResult, "text"> & { task: AiTask; tenantId: string
 
 export class AiGateway {
   private counters = new Map<string, Counter>();
+  private total = { day: 0, dayKey: "" };
   readonly usage: UsageLog[] = [];
 
   constructor(
@@ -118,8 +121,13 @@ export class AiGateway {
     if (c.day >= this.cfg.perUserPerDay) {
       throw new AiBlockedError("QUOTA_DAY", "Límite diario alcanzado.");
     }
+    if (this.total.dayKey !== dayKey) this.total = { day: 0, dayKey };
+    if (this.cfg.totalPerDay !== undefined && this.total.day >= this.cfg.totalPerDay) {
+      throw new AiBlockedError("QUOTA_TOTAL_DAY", "El Copiloto alcanzó su límite diario de uso. Intente mañana.");
+    }
     c.minute++;
     c.day++;
+    this.total.day++;
     this.counters.set(userId, c);
   }
 
