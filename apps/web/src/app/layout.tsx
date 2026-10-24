@@ -6,6 +6,9 @@ import { SessionPill } from "@/components/SessionPill";
 import { MainNav } from "@/components/MainNav";
 import { Footer } from "@/components/Footer";
 
+// El menú y la sesión leen el estado compartido de la base: nada se genera en el build.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: { default: "INSEDU", template: "%s · INSEDU" },
   description: "Acompañamiento integral del estudiante: académico, salud integral y convivencia.",
