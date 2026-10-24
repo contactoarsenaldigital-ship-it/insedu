@@ -14,10 +14,10 @@ export default async function CopilotPage() {
   const live = Boolean(process.env.GEMINI_API_KEY);
   return (
     <main className="wrap" style={{ maxWidth: 860 }}>
-      <span className="muted">Docente</span>
-      <h1>Copiloto Docente</h1>
-      <p>Genere guías, pruebas con pauta, rúbricas y planificaciones alineadas a las Bases Curriculares. Todo resultado es un borrador que usted revisa y aprueba.</p>
-      {!live && <p className="notice">Modo demostración sin conexión a Gemini: configure GEMINI_API_KEY en el servidor para generar contenido real.</p>}
+      <span className="muted no-print">Docente</span>
+      <h1 className="no-print">Copiloto Docente</h1>
+      <p className="no-print">Genere guías, pruebas con pauta, rúbricas y planificaciones alineadas a las Bases Curriculares, para todas las asignaturas de 1° Básico a 4° Medio. Todo resultado es un borrador que usted revisa, aprueba y descarga en Word o PDF.</p>
+      {!live && <p className="notice no-print">Modo demostración sin conexión a Gemini: configure GEMINI_API_KEY en el servidor para generar contenido real.</p>}
       {isTeacher ? (
         <Copilot />
       ) : (

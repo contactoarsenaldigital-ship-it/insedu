@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCopilotRequest } from "../src/ai/copilot";
+import { buildCopilotRequest, normalizeMath, SCHOOL_LEVELS, subjectsFor } from "../src/ai/copilot";
 import { AiBlockedError, AiGateway, detectPersonalData } from "../src/ai/gateway";
 import { EchoProvider } from "../src/ai/gemini";
 import { courseReport } from "../src/analytics";
@@ -56,6 +56,26 @@ describe("AI Gateway", () => {
     expect(r.task).toBe("generate.assessment");
     expect(r.prompt).toContain("8 preguntas");
     expect(r.promptVersion).toMatch(/^\d{4}-/);
+    expect(r.prompt).toContain("6 de selección múltiple");
+    expect(r.prompt).toContain("LaTeX");
+  });
+
+  it("ofrece las asignaturas de cada nivel, de 1° Básico a 4° Medio", () => {
+    expect(SCHOOL_LEVELS).toHaveLength(12);
+    expect(subjectsFor("1° Básico")).toContain("Lenguaje y Comunicación");
+    expect(subjectsFor("7° Básico")).toContain("Lengua y Literatura");
+    expect(subjectsFor("1° Medio")).toContain("Química");
+    expect(subjectsFor("4° Medio")).toContain("Filosofía");
+    expect(subjectsFor("4° Medio")).not.toContain("Tecnología");
+    expect(subjectsFor("Kínder")).toEqual([]);
+  });
+
+  it("normaliza fórmulas sin confundir montos en pesos", () => {
+    expect(normalizeMath("La fracción \\(\\frac{1}{2}\\) es igual a \\( \\frac{2}{4} \\).")).toBe("La fracción $$\\frac{1}{2}$$ es igual a $$\\frac{2}{4}$$.");
+    expect(normalizeMath("Área:\n\\[ A = \\pi r^2 \\]\nListo")).toBe("Área:\n\n$$\nA = \\pi r^2\n$$\n\nListo");
+    expect(normalizeMath("$$x^2 + 1$$")).toBe("$$\nx^2 + 1\n$$");
+    expect(normalizeMath("Si $x^2 = 9$, entonces")).toBe("Si $$x^2 = 9$$, entonces");
+    expect(normalizeMath("Cuesta $5.000 y el otro $3.000.")).toBe("Cuesta $5.000 y el otro $3.000.");
   });
 });
 

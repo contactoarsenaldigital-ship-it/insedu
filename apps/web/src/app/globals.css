@@ -294,3 +294,45 @@ ol.messages { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap
 ol.messages li { max-width: 80%; padding: 10px 14px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); display: grid; gap: 4px; }
 ol.messages li.mine { justify-self: end; background: #eef3f8; border-color: #d4e1ee; }
 @media (max-width: 720px) { .inbox { grid-template-columns: 1fr; } ol.messages li { max-width: 100%; } }
+
+/* ── Copiloto Docente: borrador formateado, edición e impresión ── */
+.draft-toolbar { display: flex; gap: 12px 24px; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+.draft-toolbar h2 { margin-bottom: 4px; }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 3px; background: var(--surface); }
+.segmented button { font: inherit; font-size: .88rem; font-weight: 500; border: 0; background: transparent; color: var(--ink-2); padding: 7px 14px; border-radius: var(--radius-pill); cursor: pointer; min-height: 36px; }
+.segmented button[aria-pressed="true"] { background: var(--ink-dark); color: var(--on-dark); }
+.draft-source { width: 100%; font: .92rem/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; padding: 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--field); }
+.draft-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.draft-doc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: clamp(18px, 4vw, 40px); }
+.draft-meta { color: var(--ink-2); font-size: .82rem; margin: 0 0 6px; }
+.student-fields { display: none; margin: 0 0 18px; white-space: nowrap; overflow: hidden; }
+.md-view { line-height: 1.6; overflow-wrap: anywhere; }
+.md-view > :first-child { margin-top: 0; }
+.md-view h1 { font-size: 1.6rem; margin: 0 0 .75rem; }
+.md-view h2 { font-size: 1.25rem; margin: 1.6rem 0 .5rem; }
+.md-view h3 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
+.md-view p { margin: 0 0 .75rem; }
+.md-view ul, .md-view ol { padding-left: 1.5rem; margin: 0 0 .75rem; }
+.md-view li { margin: .25rem 0; }
+.md-view li > p { margin: 0; }
+.md-view blockquote { margin: 0 0 .75rem; padding: 4px 14px; border-left: 3px solid var(--line); color: var(--ink-2); font-style: italic; }
+.md-view hr { border: 0; border-top: 1px solid var(--line); margin: 1.25rem 0; }
+.md-view table { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .92rem; display: block; overflow-x: auto; }
+.md-view th, .md-view td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.md-view th { background: #f2f5f8; font-weight: 600; }
+.md-view .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+.md-view input[type="checkbox"] { margin-right: 6px; }
+
+@media print {
+  @page { size: letter; margin: 2cm; }
+  body { background: #fff; }
+  .topbar, .site-footer, .no-print { display: none !important; }
+  .wrap { padding: 0; max-width: none !important; }
+  .section { margin: 0; }
+  .draft-doc { border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+  .student-fields { display: block; }
+  .md-view { font-size: 11pt; }
+  .md-view table { display: table; }
+  .md-view h1, .md-view h2, .md-view h3 { break-after: avoid; }
+  .md-view tr, .md-view li, .md-view .katex-display { break-inside: avoid; }
+}
