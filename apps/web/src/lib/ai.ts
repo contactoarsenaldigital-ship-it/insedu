@@ -8,7 +8,7 @@ let gateway: AiGateway | null = null;
 export function aiGateway(): AiGateway {
   if (gateway) return gateway;
   const key = process.env.GEMINI_API_KEY;
-  const provider = key ? new GeminiProvider(key, process.env.GEMINI_MODEL || "gemini-2.5-flash") : new EchoProvider();
+  const provider = key ? new GeminiProvider(key, process.env.GEMINI_MODEL || "gemini-3.5-flash-lite") : new EchoProvider();
   gateway = new AiGateway(provider, {
     tier: (process.env.AI_TIER as AiTier) || "free",
     dataMode: (process.env.INSEDU_DATA_MODE as DataMode) || "synthetic",
