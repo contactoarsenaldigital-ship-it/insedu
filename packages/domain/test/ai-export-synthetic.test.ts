@@ -5,7 +5,7 @@ import { EchoProvider } from "../src/ai/gemini";
 import { courseReport } from "../src/analytics";
 import { ATTENDANCE_TEMPLATE, checkAttendance, checkGrades, GRADES_TEMPLATE, toDelimited } from "../src/mineduc-export";
 import { isValidRut } from "../src/rut";
-import { generateSchool } from "../src/synthetic/generator";
+import { demoWindow, generateSchool } from "../src/synthetic/generator";
 
 const req = (over = {}) => ({
   task: "generate.material" as const,
@@ -88,6 +88,17 @@ describe("colegio sintético y exportación MINEDUC", () => {
     expect(generateSchool(2026).students[5]).toEqual(school.students[5]);
     expect(school.students).toHaveLength(120);
     expect(school.students.every((s) => isValidRut(s.rut))).toBe(true);
+  });
+
+  it("se genera hasta el último día hábil anterior al reinicio, con los mismos estudiantes", () => {
+    expect(demoWindow("2026-10-26")).toEqual({ from: "2026-08-17", to: "2026-10-23" }); // lunes → viernes anterior
+    expect(demoWindow("2026-10-24").to).toBe("2026-10-23"); // sábado → viernes
+    expect(demoWindow("2026-10-22").to).toBe("2026-10-21"); // jueves → miércoles
+    const w = demoWindow("2026-10-26");
+    const current = generateSchool(2026, w);
+    expect(current.schoolDays).toHaveLength(school.schoolDays.length);
+    expect(current.schoolDays.at(-1)).toBe("2026-10-23");
+    expect(current.students).toEqual(school.students); // Trinidad y sus compañeros no cambian
   });
 
   it("produce cursos con alertas y ranking de progreso", () => {

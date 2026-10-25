@@ -1,7 +1,8 @@
 import "server-only";
-import { generateSchool, type SyntheticSchool } from "@insedu/domain";
+import type { SyntheticSchool } from "@insedu/domain";
 import { VAULT_COLLECTIONS } from "@insedu/domain/server";
 import { pgPool, StateSync, type Collection, type SqlPool } from "@insedu/persistence";
+import { generateDemoSchool } from "./demo";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
@@ -72,7 +73,7 @@ function resetMain() {
 }
 
 function seedMain() {
-  G.__insedu_school = generateSchool(2026);
+  G.__insedu_school = generateDemoSchool(); // hasta el último día hábil anterior al reinicio
   G.__insedu_store = initStore(); // agrupa notas en evaluaciones (usa el colegio recién generado)
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();

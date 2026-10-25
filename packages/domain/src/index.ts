@@ -9,7 +9,7 @@ export * from "./mineduc-export";
 export * from "./safeguarding/policy";
 export * from "./ai/gateway";
 export * from "./ai/copilot";
-export { generateSchool, weekdays, mulberry32, SUBJECTS, type SyntheticSchool } from "./synthetic/generator";
+export { demoWindow, generateSchool, weekdays, mulberry32, SUBJECTS, type SyntheticSchool } from "./synthetic/generator";
 export * from "./ids";
 export * from "./gradebook";
 export * from "./permissions";

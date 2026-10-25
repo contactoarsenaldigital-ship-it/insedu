@@ -66,6 +66,22 @@ export function weekdays(from: string, to: string): string[] {
   return out;
 }
 
+/**
+ * Periodo del colegio de demostración: termina el último día hábil ANTES de `today` (hoy queda
+ * libre para registrar en vivo: escaneos, clases, notas) y abarca `days` días hábiles, como el
+ * periodo original (03-08 a 09-10-2026). Así, al reiniciar, «esta semana» se ve actual.
+ */
+export function demoWindow(today: string, days = 50): { from: string; to: string } {
+  const out: string[] = [];
+  const d = new Date(`${today}T12:00:00Z`);
+  while (out.length < days) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    const wd = d.getUTCDay();
+    if (wd >= 1 && wd <= 5) out.push(d.toISOString().slice(0, 10));
+  }
+  return { from: out.at(-1)!, to: out[0]! };
+}
+
 type Profile = { attendance: number; lateness: number; grade: number; trend: number; conduct: number; health: number };
 
 export function generateSchool(seed = 2026, opts?: { from?: string; to?: string; perCourse?: number }): SyntheticSchool {
