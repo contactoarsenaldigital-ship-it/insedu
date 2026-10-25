@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { formatRut, maskRut, attendanceRate, recognize, currentStreak, type Alert } from "@insedu/domain";
+import { can, formatRut, maskRut, attendanceRate, recognize, currentStreak, type Alert } from "@insedu/domain";
 import { courseById, dec, fullName, pct, reportFor, school, studentById } from "@/lib/demo";
+import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 import { suggest } from "@/lib/exports";
 import { DownloadLinks } from "@/components/DownloadLinks";
@@ -11,27 +13,49 @@ type Params = { rol: string };
 
 const DIM_ICON: Record<Alert["dimension"], string> = { asistencia: "◷", academica: "✎", conducta: "◆", salud: "✚" };
 
-export default async function Panel({ params }: { params: Promise<Params> }) {
+/** Cada panel exige sesión y muestra solo lo que corresponde a quien ingresó. */
+export default async function Panel({ params, searchParams }: { params: Promise<Params>; searchParams: Promise<{ curso?: string }> }) {
   await readState();
   const { rol } = await params;
+  if (rol === "salvaguarda") redirect("/salvaguarda");
+  if (!["profesor-jefe", "estudiante", "apoderado", "direccion"].includes(rol)) notFound();
+  const session = await getSession();
+  if (!session) redirect(`/ingresar?next=${encodeURIComponent(`/panel/${rol}`)}`);
+  const { person, scope } = session;
+
   switch (rol) {
-    case "profesor-jefe":
-      return <HeadTeacher />;
+    case "profesor-jefe": {
+      // Profesor jefe: su curso. Dirección, inspectoría y equipo de apoyo: cualquier curso, con selector.
+      const courses = school().courses.filter((c) => can(person.roles, "course.read", scope, { courseId: c.id }));
+      if (!courses.length) return <NoAccess text="Este panel es para profesores jefe, dirección, inspectoría y el equipo de apoyo." hint="Carolina Fuentes (profesora jefe de 5° Básico A)" />;
+      const wanted = (await searchParams).curso;
+      const course = courses.find((c) => c.id === wanted) ?? courses.find((c) => scope.headOfCourseIds.includes(c.id)) ?? courses[0]!;
+      return <HeadTeacher courseId={course.id} choices={courses.length > 1 ? courses.map((c) => ({ id: c.id, name: c.name })) : []} />;
+    }
     case "estudiante":
-      return <StudentView />;
+      if (!person.roles.includes("student")) return <NoAccess text="Este panel muestra el avance de cada estudiante y solo lo ve el propio estudiante." hint="Trinidad Valenzuela (estudiante)" />;
+      return <StudentView studentId={person.id} />;
     case "apoderado":
-      return <GuardianView />;
-    case "direccion":
-      return <DirectorView />;
-    case "salvaguarda":
-      redirect("/salvaguarda");
+      if (!person.wards?.length) return <NoAccess text="Este resumen semanal es para el apoderado de cada estudiante." hint="el apoderado de Trinidad Valenzuela" />;
+      return <GuardianView studentId={person.wards[0]!} />;
     default:
-      notFound();
+      if (!person.roles.some((r) => r === "director" || r === "school_admin")) return <NoAccess text="Este panel es para dirección y administración del establecimiento." hint="Jorge Valenzuela (director)" />;
+      return <DirectorView />;
   }
 }
 
-function HeadTeacher() {
-  const course = school().courses[0]!;
+function NoAccess({ text, hint }: { text: string; hint: string }) {
+  return (
+    <main className="wrap" style={{ maxWidth: 720 }}>
+      <h1>Panel no disponible para su perfil</h1>
+      <p className="notice warn">{text}</p>
+      <p className="muted">Para verlo en la demostración, <Link href="/ingresar">cambie de usuario</Link> e ingrese, por ejemplo, como {hint}.</p>
+    </main>
+  );
+}
+
+function HeadTeacher({ courseId, choices }: { courseId: string; choices: { id: string; name: string }[] }) {
+  const course = courseById(courseId)!;
   const r = reportFor(course.id);
   const byStudent = new Map<string, Alert[]>();
   for (const a of r.alerts) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), a]);
@@ -39,6 +63,11 @@ function HeadTeacher() {
     <main className="wrap">
       <span className="muted">Profesor jefe · {course.name}</span>
       <h1>¿Quién necesita atención?</h1>
+      {choices.length > 0 && (
+        <nav className="tabs" aria-label="Curso">
+          {choices.map((c) => <Link key={c.id} href={`/panel/profesor-jefe?curso=${c.id}`} aria-current={c.id === course.id ? "page" : undefined}>{c.name}</Link>)}
+        </nav>
+      )}
       <div className="grid section">
         <Kpi label="Asistencia del curso" value={pct(r.summary.avgAttendance)} />
         <Kpi label="Promedio del curso" value={dec(r.summary.avgGrade)} />
@@ -126,15 +155,15 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
   );
 }
 
-function pickStudent() {
-  // El estudiante que lidera el ranking de mejora del primer curso: muestra el valor del ranking de progreso.
-  const course = school().courses[0]!;
-  const top = reportFor(course.id).ranking[0]!;
-  return { st: studentById(top.studentId)!, rank: top, course };
+function studentContext(studentId: string) {
+  const st = studentById(studentId)!;
+  const course = courseById(st.courseId)!;
+  const rank = reportFor(course.id).ranking.find((p) => p.studentId === st.id);
+  return { st, course, rank };
 }
 
-function StudentView() {
-  const { st, rank, course } = pickStudent();
+function StudentView({ studentId }: { studentId: string }) {
+  const { st, rank, course } = studentContext(studentId);
   const att = school().attendance.filter((a) => a.studentId === st.id);
   const streak = currentStreak(att.map((a) => a.status));
   const conduct = school().conduct.filter((c) => c.studentId === st.id && c.kind !== "negative").slice(-4).reverse();
@@ -143,10 +172,10 @@ function StudentView() {
     <main className="wrap">
       <span className="muted">Estudiante · {course.name}</span>
       <h1>Hola, {st.firstName}.</h1>
-      <p>Vas en el lugar <strong>{rank.position}</strong> del ranking de mejora de tu curso. Este ranking compara tu avance contigo mismo: todos pueden subir.</p>
+      {rank && <p>Vas en el lugar <strong>{rank.position}</strong> del ranking de mejora de tu curso. Este ranking compara tu avance contigo mismo: todos pueden subir.</p>}
       <div className="grid section">
-        <Kpi label="Tu progreso" value={rank.score.toFixed(1).replace(".", ",")} hint="50 = igual que antes; más alto = mejoraste" />
-        <Kpi label="Días seguidos asistiendo" value={String(streak)} hint="Próxima insignia de constancia en 5, 10, 20 y 40 días" />
+        {rank && <Kpi label="Tu progreso" value={rank.score.toFixed(1).replace(".", ",")} hint="50 = igual que antes; más alto = mejoraste" />}
+        <Kpi label="Días seguidos asistiendo" value={String(streak)} hint="Insignias de constancia a los 5, 10, 20, 40 y 60 días" />
         <Kpi label="Tu asistencia" value={pct(attendanceRate(att.map((a) => a.status)))} />
       </div>
       <section className="section">
@@ -166,8 +195,8 @@ function StudentView() {
   );
 }
 
-function GuardianView() {
-  const { st, course } = pickStudent();
+function GuardianView({ studentId }: { studentId: string }) {
+  const { st, course } = studentContext(studentId);
   const s = school();
   const lastWeek = s.schoolDays.slice(-5);
   const att = s.attendance.filter((a) => a.studentId === st.id && lastWeek.includes(a.date));

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { localDate, syncQueue, type ScanContext, type ScanEvent } from "@insedu/domain";
 import { courseById, fullName, school } from "@/lib/demo";
 import { awardDailyAttendance } from "@/lib/rewards";
-import { withState } from "@/lib/state";
+import { canScan, getSession } from "@/lib/session";
+import { readState, withState } from "@/lib/state";
 
 /**
  * Sincronización de escaneos de credenciales.
@@ -29,10 +30,21 @@ function contextFor(date: string): ScanContext {
 
 const MAX_BATCH = 200;
 
+const isEvent = (e: unknown): e is ScanEvent => {
+  const x = e as Record<string, unknown> | null;
+  return !!x && ["clientId", "tenantId", "rawCode", "scannedAt", "deviceId"].every((k) => typeof x[k] === "string" && (x[k] as string).length > 0);
+};
+
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { events?: ScanEvent[] } | null;
+  // Si se rechaza, la cola del dispositivo conserva los escaneos y los reenvía al ingresar.
+  await readState();
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Ingrese para registrar asistencia.", code: "NO_SESSION" }, { status: 401 });
+  if (!canScan(session)) return NextResponse.json({ error: "Su perfil no registra asistencia.", code: "FORBIDDEN" }, { status: 403 });
+
+  const body = (await req.json().catch(() => null)) as { events?: unknown[] } | null;
   const events = body?.events;
-  if (!Array.isArray(events) || events.length === 0 || events.length > MAX_BATCH) {
+  if (!Array.isArray(events) || events.length === 0 || events.length > MAX_BATCH || !events.every(isEvent)) {
     return NextResponse.json({ error: "Lote inválido" }, { status: 400 });
   }
   return withState(async () => {

@@ -63,14 +63,18 @@ const dep = await sgB.locator("form.card", { hasText: "Lorena Pizarro" }).count(
 log("Antecedentes de enfermería visibles en B:", dep);
 if (dep < 2) fail("el antecedente entregado en A debía verse en B");
 
-// 4) Escaneo duplicado entre servidores
-const st = await (await fetch(`${A}/escanear`)).text();
-const rut = st.match(/contenido del código: <!-- -->?<code>(\d+[0-9K])<\/code>/)?.[1] ?? st.match(/<code>(\d+[0-9K])<\/code>/)?.[1];
+// 4) Escaneo duplicado entre servidores (registrar asistencia exige sesión de docente, inspectoría o portería)
+const gateA = await as(A, "Carolina");
+const gateB = await as(B, "Carolina");
+await gateA.goto(`${A}/escanear`);
+const rut = (await gateA.locator("details code").first().textContent())?.trim();
 const ev = (clientId) => ({ clientId, tenantId: "00000000-0000-7000-8000-000000000001", rawCode: rut, scannedAt: new Date().toISOString(), scannedBy: "gate-1", deviceId: clientId.slice(-4), accessPoint: "Acceso principal" });
-const post = (base, e) => fetch(`${base}/api/attendance/scan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ events: [e] }) }).then((r) => r.json());
-const r1 = await post(A, ev("019a0000-0000-7000-8000-0000000000a1"));
-const r2 = await post(B, ev("019a0000-0000-7000-8000-0000000000b2"));
-const r3 = await post(B, ev("019a0000-0000-7000-8000-0000000000a1"));
+const post = (page, base, e) => page.request.post(`${base}/api/attendance/scan`, { data: { events: [e] } }).then((r) => r.json());
+const anon = await fetch(`${A}/api/attendance/scan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ events: [ev("019a0000-0000-7000-8000-0000000000c3")] }) });
+if (anon.status !== 401) fail("sin sesión, el escaneo debía rechazarse con 401");
+const r1 = await post(gateA, A, ev("019a0000-0000-7000-8000-0000000000a1"));
+const r2 = await post(gateB, B, ev("019a0000-0000-7000-8000-0000000000b2"));
+const r3 = await post(gateB, B, ev("019a0000-0000-7000-8000-0000000000a1"));
 log("Escaneo en A:", r1.results[0].outcome.kind, "· mismo RUT en B:", r2.results[0].outcome.kind, "· reintento del mismo escaneo en B:", r3.results[0].outcome.kind);
 if (r1.results[0].outcome.kind !== "recorded") fail("el primer escaneo debía registrarse");
 if (r2.results[0].outcome.kind !== "duplicate") fail("el segundo escaneo del mismo RUT en otro servidor debía detectarse como duplicado");

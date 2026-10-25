@@ -89,6 +89,9 @@ export async function getSession(): Promise<Session | null> {
   return person ? { person, scope: scopeOf(person.id), lastStrongAuthAt: await strongAuthAt(person.id) } : null;
 }
 
+/** Registran asistencia escaneando credenciales: docentes, inspectoría y portería (como el menú «Escanear»). */
+export const canScan = (s: Session) => s.person.roles.some((r) => r === "teacher" || r === "head_teacher" || r === "inspector" || r === "gatekeeper");
+
 /** Los archivos para MINEDUC incluyen a todo el establecimiento: solo dirección y administración. */
 export const canExportMineduc = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 

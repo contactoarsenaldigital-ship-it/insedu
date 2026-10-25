@@ -22,6 +22,7 @@ export function Scanner() {
   const [last, setLast] = useState<Verified | { offline: true; rut: string } | { invalid: string } | null>(null);
   const [manual, setManual] = useState("");
   const [accessPoint, setAccessPoint] = useState("Acceso principal");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const refreshQueue = useCallback(async () => setQueueSize((await pending()).length), []);
 
@@ -34,7 +35,13 @@ export function Scanner() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ events: items }),
       });
+      if (res.status === 401 || res.status === 403) {
+        // Sin sesión o sin permiso: los escaneos siguen en la cola del dispositivo hasta que ingrese alguien autorizado.
+        setAuthError(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "No autorizado para registrar asistencia.");
+        return;
+      }
       if (!res.ok) return;
+      setAuthError(null);
       const data = (await res.json()) as { results: Verified[] };
       for (const r of data.results) await remove(r.clientId);
       const latest = data.results.at(-1);
@@ -77,6 +84,7 @@ export function Scanner() {
   useEffect(() => {
     setOnline(navigator.onLine);
     refreshQueue();
+    sync(); // al abrir (por ejemplo, recién ingresado) envía lo que quedó en cola
     const on = () => {
       setOnline(true);
       sync();
@@ -134,6 +142,12 @@ export function Scanner() {
         {online ? "Con conexión." : "Sin conexión: los escaneos se guardan y se sincronizan al reconectar."}{" "}
         {queueSize > 0 && <strong>{queueSize} pendiente(s) de enviar.</strong>}
       </p>
+      {authError && (
+        <p className="notice warn" role="alert">
+          {authError} Los escaneos quedan guardados en este dispositivo y se enviarán cuando ingrese un docente, inspectoría o portería.{" "}
+          <a href="/ingresar?next=/escanear">Ingresar</a>
+        </p>
+      )}
 
       <video ref={videoRef} className="scan-video" muted playsInline hidden={camera !== "on"} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
