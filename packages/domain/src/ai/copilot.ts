@@ -91,13 +91,16 @@ export function buildCopilotRequest(i: CopilotInput) {
 /**
  * Lleva las fórmulas del modelo a la sintaxis que interpreta la vista (remark-math sin "$" simple):
  * \( x \) → $$x$$ en línea; \[ x \] y una línea con solo $$x$$ → bloque; $x^2$ → $$x^2$$ solo si
- * parece LaTeX, para no confundir montos en pesos ("$5.000 y $3.000").
+ * parece LaTeX, para no confundir montos en pesos ("$5.000 y $3.000"); $16$ → 16. Dentro de las
+ * fórmulas, la coma decimal chilena se protege (1{,}25) para que no se lea como separador.
  */
 export function normalizeMath(md: string): string {
   return md
     .replace(/\\\[([\s\S]+?)\\\]/g, (_, tex: string) => `\n\n$$\n${tex.trim()}\n$$\n\n`)
     .replace(/\\\(([\s\S]+?)\\\)/g, (_, tex: string) => `$$${tex.trim()}$$`)
     .replace(/^[ \t]*\$\$([^\n$]+?)\$\$[ \t]*$/gm, (_, tex: string) => `$$\n${tex.trim()}\n$$`)
+    .replace(/(?<![$\\\d])\$(\d+(?:[.,]\d+)*)\$(?!\$)/g, (_, n: string) => n)
     .replace(/(?<![$\\])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)/g, (m, tex: string) => (/[\\^_{}]/.test(tex) ? `$$${tex.trim()}$$` : m))
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) => `$$${tex.replace(/(\d),(?=\d)/g, "$1{,}")}$$`)
     .replace(/\n{3,}/g, "\n\n");
 }

@@ -6,7 +6,6 @@ import {
   Footer,
   HeadingLevel,
   ImportedXmlComponent,
-  LevelFormat,
   PageNumber,
   Paragraph,
   ShadingType,
@@ -35,6 +34,7 @@ type Node = {
   value?: string;
   depth?: number;
   ordered?: boolean | null;
+  start?: number | null;
   checked?: boolean | null;
   url?: string;
   alt?: string;
@@ -63,7 +63,8 @@ function omml(tex: string, display: boolean): ParagraphChild | null {
     const clean = mml
       .replace(/<annotation[\s\S]*?<\/annotation>/g, "")
       .replace(/<mspace[^>]*\/>/g, "<mtext> </mtext>"); // mathml2omml descarta los espacios (\quad)
-    const xml = wrapLooseText(mml2omml(clean));
+    // disableDecode: "&lt;" y "&amp;" deben seguir escapados para que la ecuación sea XML válido.
+    const xml = wrapLooseText(mml2omml(clean, { disableDecode: true }));
     // fromXmlString devuelve el documento leído (un nodo sin nombre que Word rechaza): se usa su primer elemento.
     const parsed = ImportedXmlComponent.fromXmlString(display ? `<m:oMathPara>${xml}</m:oMathPara>` : xml);
     const element = (parsed as unknown as { root: unknown[] }).root[0];
@@ -110,11 +111,10 @@ function inline(nodes: Node[] = [], s: Style = {}): ParagraphChild[] {
 const plain = (n: Node): string => n.value ?? (n.children ?? []).map(plain).join("");
 
 const HEADINGS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4];
-const OL = "insedu-ol";
 
 type Block = Paragraph | Table;
 
-function blocks(nodes: Node[] = [], ctx: { counter: { n: number } }): Block[] {
+function blocks(nodes: Node[] = []): Block[] {
   return nodes.flatMap((n): Block[] => {
     switch (n.type) {
       case "heading":
@@ -126,7 +126,7 @@ function blocks(nodes: Node[] = [], ctx: { counter: { n: number } }): Block[] {
         return [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: eq ? [eq] : [run(n.value ?? "", { italics: true })] })];
       }
       case "list":
-        return list(n, 0, ctx);
+        return list(n, 0);
       case "table":
         return [table(n)];
       case "blockquote":
@@ -148,20 +148,22 @@ function blocks(nodes: Node[] = [], ctx: { counter: { n: number } }): Block[] {
   });
 }
 
-function list(n: Node, level: number, ctx: { counter: { n: number } }): Block[] {
-  const instance = ++ctx.counter.n; // cada lista numerada parte desde 1
-  return (n.children ?? []).flatMap((item) =>
+/**
+ * Las listas numeradas llevan el número escrito y no la numeración automática de Word: el modelo
+ * suele cortar una lista con las alternativas y seguir en "2.", y Word reiniciaría en 1.
+ */
+function list(n: Node, level: number): Block[] {
+  const left = 720 * (level + 1);
+  return (n.children ?? []).flatMap((item, index) =>
     (item.children ?? []).flatMap((child, i): Block[] => {
-      if (child.type === "list") return list(child, level + 1, ctx);
-      if (child.type !== "paragraph") return blocks([child], ctx);
+      if (child.type === "list") return list(child, level + 1);
+      if (child.type !== "paragraph") return blocks([child]);
       const box = i === 0 && item.checked != null ? [new TextRun(item.checked ? "☑ " : "☐ ")] : [];
       const children = [...box, ...inline(child.children)];
-      if (i > 0) return [new Paragraph({ children, indent: { left: 720 * (level + 1) }, spacing: { after: 80 } })];
-      return [
-        n.ordered
-          ? new Paragraph({ children, numbering: { reference: OL, level, instance }, spacing: { after: 80 } })
-          : new Paragraph({ children, bullet: { level }, spacing: { after: 80 } }),
-      ];
+      if (i > 0) return [new Paragraph({ children, indent: { left }, spacing: { after: 80 } })];
+      if (!n.ordered) return [new Paragraph({ children, bullet: { level }, spacing: { after: 80 } })];
+      const label = level % 2 === 0 ? `${(n.start ?? 1) + index}.` : `${String.fromCharCode(97 + ((n.start ?? 1) + index - 1) % 26)}.`;
+      return [new Paragraph({ children: [new TextRun(`${label}\t`), ...children], indent: { left, hanging: 360 }, tabStops: [{ type: "left", position: left }], spacing: { after: 80 } })];
     }),
   );
 }
@@ -197,20 +199,6 @@ export function draftToDocx(md: string, meta: DraftMeta): Document {
     creator: "INSEDU · Copiloto Docente",
     title: `${meta.kind} · ${meta.subject} · ${meta.level}`,
     styles: { default: { document: { run: { font: "Calibri", size: 22 } } } },
-    numbering: {
-      config: [
-        {
-          reference: OL,
-          levels: [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN, LevelFormat.DECIMAL].map((format, level) => ({
-            level,
-            format,
-            text: `%${level + 1}.`,
-            alignment: AlignmentType.START,
-            style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
-          })),
-        },
-      ],
-    },
     sections: [
       {
         // Tamaño carta, márgenes de 2 cm.
@@ -225,7 +213,7 @@ export function draftToDocx(md: string, meta: DraftMeta): Document {
             ],
           }),
         },
-        children: [...header, ...blocks(parse(md).children, { counter: { n: 0 } })],
+        children: [...header, ...blocks(parse(md).children)],
       },
     ],
   });

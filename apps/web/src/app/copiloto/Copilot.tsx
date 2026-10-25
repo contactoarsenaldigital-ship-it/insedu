@@ -88,7 +88,14 @@ export function Copilot() {
 
   return (
     <>
-      <form action={submit} className="no-print">
+      {/* onSubmit y no action: con action, React vacía el formulario al terminar y el docente pierde el objetivo. */}
+      <form
+        className="no-print"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(new FormData(e.currentTarget));
+        }}
+      >
         <div className="grid">
           <div className="field">
             <label htmlFor="kind">Tipo de material</label>

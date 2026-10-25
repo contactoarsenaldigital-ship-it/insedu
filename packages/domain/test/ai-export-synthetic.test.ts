@@ -76,6 +76,8 @@ describe("AI Gateway", () => {
     expect(normalizeMath("$$x^2 + 1$$")).toBe("$$\nx^2 + 1\n$$");
     expect(normalizeMath("Si $x^2 = 9$, entonces")).toBe("Si $$x^2 = 9$$, entonces");
     expect(normalizeMath("Cuesta $5.000 y el otro $3.000.")).toBe("Cuesta $5.000 y el otro $3.000.");
+    expect(normalizeMath("Un total de hasta $16$ puntos.")).toBe("Un total de hasta 16 puntos.");
+    expect(normalizeMath("Solución: \\( d > 1,25 \\) y \\( P(1, 2) \\)")).toBe("Solución: $$d > 1{,}25$$ y $$P(1, 2)$$");
   });
 });
 
