@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { validateMessage } from "@insedu/domain";
 import { school } from "@/lib/demo";
-import { allowed, markRead, msgState, publish, send, teacherCourses } from "@/lib/messages";
+import { allowed, deliveryOf, markRead, msgState, publish, send, teacherCourses } from "@/lib/messages";
 import { getSession } from "@/lib/session";
 import { findPerson } from "@/lib/store";
 
@@ -60,8 +60,9 @@ async function publishAnnouncementImpl(f: FormData) {
   if (title.length < 5 || title.length > 120) back("/mensajes", { error: "El título debe tener entre 5 y 120 caracteres." });
   const err = validateMessage(body);
   if (err) back("/mensajes", { error: err });
-  publish({ courseId: scope === "todos" ? null : scope, title, body, requiresAck: f.get("requiresAck") === "1", authorId: author.id });
-  back("/mensajes", { ok: "Comunicado publicado." });
+  const courseId = scope === "todos" ? null : scope;
+  publish({ courseId, title, body, requiresAck: f.get("requiresAck") === "1", authorId: author.id });
+  back("/mensajes", { ok: `Comunicado publicado. ${deliveryOf(courseId).text}.` });
 }
 
 async function confirmReadImpl(f: FormData) {

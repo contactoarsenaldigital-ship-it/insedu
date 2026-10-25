@@ -148,6 +148,17 @@ export function announcementsFor(me: Person) {
     .sort((x, y) => y.at.localeCompare(x.at));
 }
 
+/**
+ * Cómo se entrega un comunicado en la Etapa 1: solo dentro de INSEDU (Comunicación → Comunicados),
+ * a los apoderados y estudiantes del curso o de todo el establecimiento. Sin correo ni notificación
+ * al teléfono: eso llega en el piloto, cuando existan contactos reales.
+ */
+export function deliveryOf(courseId: string | null) {
+  const n = school().students.filter((s) => courseId === null || s.courseId === courseId).length; // un apoderado por estudiante
+  const scope = courseId ? school().courses.find((c) => c.id === courseId)?.name ?? "el curso" : "todo el establecimiento";
+  return { text: `Lo verán ${n} apoderados y ${n} estudiantes de ${scope} en INSEDU, en Comunicación → Comunicados` };
+}
+
 /** Apoderados destinatarios de un comunicado (uno por estudiante). */
 export function audienceOf(a: Announcement) {
   return school()

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { courseById, school } from "@/lib/demo";
 import { fmtDT, who } from "@/lib/format";
-import { announcementsFor, audienceOf, other, recipientsFor, teacherCourses, threadsOf, type Announcement } from "@/lib/messages";
+import { announcementsFor, audienceOf, deliveryOf, other, recipientsFor, teacherCourses, threadsOf, type Announcement } from "@/lib/messages";
 import { getSession } from "@/lib/session";
 import type { Person } from "@/lib/repository";
 import { confirmRead, publishAnnouncement, sendMessage } from "./actions";
@@ -53,7 +53,10 @@ function Announcements({ me }: { me: Person }) {
   return (
     <>
       {me.roles.includes("student") && (
-        <p className="notice">Por protección de menores, los estudiantes reciben comunicados del curso y no tienen conversaciones privadas con adultos del colegio. Tu apoderado puede escribir a tus profesores.</p>
+        <p className="notice">Aquí llegan los comunicados del colegio y de tu curso. Por protección de menores, los estudiantes no tienen conversaciones privadas con adultos del colegio: tu apoderado puede escribir a tus profesores.</p>
+      )}
+      {me.wards && (
+        <p className="notice">Aquí llegan los comunicados del colegio y del curso de su pupilo. Por ahora INSEDU no envía avisos por correo ni al teléfono: revise esta sección y confirme la lectura cuando se le solicite.</p>
       )}
       <section className="section">
         {list.map((a) => <AnnouncementCard key={a.id} a={a} me={me} staff={staff} />)}
@@ -77,6 +80,9 @@ function Announcements({ me }: { me: Person }) {
             <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "4px 0 12px" }}>
               <input type="checkbox" name="requiresAck" value="1" /> Solicitar confirmación de lectura a los apoderados
             </label>
+            <p className="notice delivery-note">
+              <strong>¿Cómo llega?</strong> El comunicado se publica dentro de INSEDU: lo ven los apoderados y estudiantes del curso elegido al entrar a Comunicación → Comunicados, y usted sigue aquí quién confirmó la lectura. En esta maqueta no se envían correos ni notificaciones al teléfono; esa entrega se activará en el piloto, con los contactos reales de cada familia.
+            </p>
             <button className="btn primary">Publicar</button>
           </form>
         </section>
@@ -95,6 +101,7 @@ function AnnouncementCard({ a, me, staff }: { a: Announcement; me: Person; staff
       <span className="eyebrow">{a.courseId ? courseById(a.courseId)?.name : "Todo el establecimiento"} · {who(a.authorId)} · {fmtDT(a.at)}</span>
       <h3>{a.title}</h3>
       <p style={{ margin: 0 }}>{a.body}</p>
+      {staff && <span className="muted delivery">📍 {deliveryOf(a.courseId).text}. Sin correo ni aviso al teléfono en esta maqueta.</span>}
       {staff && a.requiresAck && (
         <>
           <div className="bar" aria-label="Confirmaciones de lectura"><i style={{ width: `${Math.round((readCount / Math.max(1, audience.length)) * 100)}%` }} /></div>

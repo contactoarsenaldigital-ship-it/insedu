@@ -349,3 +349,7 @@ ol.messages li.mine { justify-self: end; background: #eef3f8; border-color: #d4e
 /* ── Refuerzos: guía de puntos ── */
 .points-notes { margin: 12px 0 0; padding-left: 1.2rem; display: grid; gap: 4px; }
 table.data tr.muted td { color: var(--ink-2); }
+
+/* ── Comunicados: cómo se entregan ── */
+.delivery-note { margin: 0 0 12px; }
+.card .delivery { font-size: .85rem; }
