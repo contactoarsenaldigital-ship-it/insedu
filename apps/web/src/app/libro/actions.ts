@@ -6,8 +6,10 @@ import {
   can,
   canSign,
   formatGrade,
+  gradeImprovement,
   parseGrade,
   recognize,
+  rewardRef,
   validateLesson,
   validateReason,
   type Action,
@@ -15,7 +17,7 @@ import {
   type LessonStatus,
 } from "@insedu/domain";
 import { getSession, type Session } from "@/lib/session";
-import { award } from "@/lib/rewards";
+import { award, awardLessonArrival, awardOnce } from "@/lib/rewards";
 import { repo } from "@/lib/store";
 
 /**
@@ -71,6 +73,7 @@ async function createLessonImpl(form: FormData) {
     if (STATUSES.includes(v)) attendance[st.id] = v;
   }
   const lesson = repo.addLesson({ ...draft, teacherId: session.person.id, attendance });
+  for (const [studentId, status] of Object.entries(attendance)) awardLessonArrival(studentId, draft.date, draft.block, status);
 
   if (form.get("sign") === "1") {
     const problems = canSign(lesson, repo.studentsOf(courseId).map((s) => s.id));
@@ -106,6 +109,7 @@ async function updateLessonAttendanceImpl(form: FormData) {
     const { courseId } = await guard(subjectId, "lesson.write", "clases");
     if (!repo.studentsOf(courseId).some((s) => s.id === studentId)) back(subjectId, "clases", { error: "Estudiante no pertenece al curso." });
     repo.updateLesson(lesson.id, { attendance: { ...lesson.attendance, [studentId]: status } });
+    awardLessonArrival(studentId, lesson.date, lesson.block, status);
     done(subjectId, "clases", "Asistencia actualizada.");
   }
 
@@ -125,6 +129,7 @@ async function updateLessonAttendanceImpl(form: FormData) {
     courseId,
   });
   repo.updateLesson(lesson.id, { attendance: { ...lesson.attendance, [studentId]: status } });
+  awardLessonArrival(studentId, lesson.date, lesson.block, status); // los puntos ya ganados no se quitan si se corrige a la baja
   done(subjectId, "clases", "Corrección registrada con trazabilidad.");
 }
 
@@ -196,7 +201,15 @@ async function saveGradesImpl(form: FormData) {
       repo.setGrade({ evaluationId, studentId: c.studentId, value: c.value }, session.person.id);
     }
   }
-  for (const c of toCreate) repo.setGrade({ evaluationId, studentId: c.studentId, value: c.value }, session.person.id);
+  // Refuerzo por mejora: solo notas nuevas (no correcciones), frente al promedio anterior en la asignatura.
+  const earlier = new Set(repo.evaluationsOf(subjectId).filter((e) => e.id !== evaluationId && e.date < ev.date).map((e) => e.id));
+  const previous = repo.gradesOf(subjectId).filter((g) => earlier.has(g.evaluationId));
+  const subjectName = repo.subject(subjectId)!.name;
+  for (const c of toCreate) {
+    repo.setGrade({ evaluationId, studentId: c.studentId, value: c.value }, session.person.id);
+    const delta = gradeImprovement(previous.filter((g) => g.studentId === c.studentId).map((g) => g.value), c.value);
+    if (delta) awardOnce(c.studentId, recognize({ type: "grade_improved", subject: subjectName, delta, date: ev.date }), "notas", rewardRef.grade(evaluationId));
+  }
 
   if (!toCreate.length && !toCorrect.length) back(subjectId, "notas", { error: "No hubo cambios." }, extra);
   done(subjectId, "notas", `${toCreate.length} nota(s) nueva(s) y ${toCorrect.length} corrección(es) registradas.`);

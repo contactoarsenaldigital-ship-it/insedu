@@ -345,3 +345,7 @@ ol.messages li.mine { justify-self: end; background: #eef3f8; border-color: #d4e
 .downloads-stack { display: grid; gap: 6px; justify-items: end; }
 .downloads > span { font-size: .88rem; }
 @media (max-width: 640px) { .downloads-stack { justify-items: start; } }
+
+/* ── Refuerzos: guía de puntos ── */
+.points-notes { margin: 12px 0 0; padding-left: 1.2rem; display: grid; gap: 4px; }
+table.data tr.muted td { color: var(--ink-2); }

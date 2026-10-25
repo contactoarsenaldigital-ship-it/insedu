@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { localDate, recognize, syncQueue, type ScanContext, type ScanEvent } from "@insedu/domain";
+import { localDate, syncQueue, type ScanContext, type ScanEvent } from "@insedu/domain";
 import { courseById, fullName, school } from "@/lib/demo";
-import { award } from "@/lib/rewards";
+import { awardDailyAttendance } from "@/lib/rewards";
 import { withState } from "@/lib/state";
 
 /**
@@ -55,8 +55,8 @@ export async function POST(req: Request) {
             source: "credential_scan",
             recordedBy: ev.deviceId,
           });
-          // Condicionamiento: llegar a tiempo se asocia de inmediato a un reconocimiento.
-          if (outcome.status === "present") award(st.id, recognize({ type: "arrived_on_time", date: group.date }), "asistencia", clientId);
+          // Condicionamiento: llegar a tiempo se asocia de inmediato a un reconocimiento (y los hitos de constancia).
+          awardDailyAttendance(st.id, group.date);
         }
         results.push({
           clientId,

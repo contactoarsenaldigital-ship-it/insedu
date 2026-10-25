@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LEVELS, METRIC_LABEL, canRedeem, goalProgress, type CourseGoal } from "@insedu/domain";
+import { LEVELS, METRIC_LABEL, canRedeem, goalProgress, pointRules, type CourseGoal } from "@insedu/domain";
 import { courseById, fullName, school, studentById } from "@/lib/demo";
 import { fmtDate, fmtDT } from "@/lib/format";
 import { rewardsFor, rewardsState, summary } from "@/lib/rewards";
@@ -51,6 +51,7 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
     <main className="wrap" style={{ maxWidth: 720 }}>
       <h1>Refuerzos y recompensas</h1>
       <p className="notice">Los canjes y metas los gestiona el profesor jefe de cada curso. Los docentes refuerzan registrando anotaciones positivas y felicitaciones en el libro de clases.</p>
+      <PointsGuide />
     </main>
   );
 }
@@ -78,7 +79,9 @@ function StudentRewards({ studentId, canRedeemNow = false }: { studentId: string
         <div className="card">
           <span className="eyebrow">Puntos disponibles</span>
           <span className="kpi">{sum.balance}</span>
-          <span className="muted">Ganados en total: {sum.earned}. Canjear no baja tu nivel.</span>
+          <span className="muted">
+            {sum.earned} ganados en total − {sum.earned - sum.balance} usados o reservados en canjes. Canjear no baja tu nivel: el nivel se calcula con los puntos ganados.
+          </span>
         </div>
         <div className="card">
           <span className="eyebrow">Insignias</span>
@@ -151,9 +154,38 @@ function StudentRewards({ studentId, canRedeemNow = false }: { studentId: string
             </li>
           ))}
         </ul>
-        <p className="muted">Los puntos se ganan por llegar a tiempo, mantener la asistencia, mejorar y recibir anotaciones positivas. Nunca se descuentan.</p>
       </section>
+
+      <PointsGuide />
     </>
+  );
+}
+
+/** «¿Cómo gano puntos?»: la tabla sale de las reglas vigentes del dominio, así nunca queda desactualizada. */
+function PointsGuide() {
+  return (
+    <section className="section" id="como-gano-puntos">
+      <h2>¿Cómo gano puntos?</h2>
+      <div className="table-scroll">
+        <table className="data">
+          <thead><tr><th>Qué haces</th><th>Puntos</th><th>Cuándo se suman</th></tr></thead>
+          <tbody>
+            {pointRules().map((r) => (
+              <tr key={r.conduct} className={r.active ? undefined : "muted"}>
+                <td><strong>{r.conduct}</strong>{!r.active && <> <span className="tag">Próximamente</span></>}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{r.points}</td>
+                <td>{r.how}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="muted points-notes">
+        <li><strong>Ganados</strong>: todo lo que has ganado; nunca baja y define tu nivel ({LEVELS.map((l) => `${l.name} desde ${l.min}`).join(" · ")}).</li>
+        <li><strong>Disponibles</strong>: lo que puedes canjear. Al pedir una recompensa, sus puntos quedan reservados; si el profesor jefe la rechaza, vuelven a tu saldo.</li>
+        <li>Los puntos nunca se descuentan por una anotación negativa: esas situaciones se trabajan con medidas formativas.</li>
+      </ul>
+    </section>
   );
 }
 
@@ -312,6 +344,8 @@ function HeadTeacherRewards({ courseIds, name }: { courseIds: string[]; name: st
         </div>
         <p className="muted">Niveles: {LEVELS.map((l) => `${l.name} (${l.min})`).join(" · ")}</p>
       </section>
+
+      <PointsGuide />
     </>
   );
 }

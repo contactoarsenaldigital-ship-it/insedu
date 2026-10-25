@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateCourse, evaluateStudent, type StudentIndicators } from "../src/alerts";
-import { currentStreak, progressRanking, recognize } from "../src/reinforcement";
+import { currentStreak, gradeImprovement, pointRules, progressRanking, recognize, rewardRef } from "../src/reinforcement";
 
 describe("refuerzo positivo", () => {
   it("refuerza de inmediato y nombra la conducta", () => {
@@ -16,6 +16,23 @@ describe("refuerzo positivo", () => {
     expect(recognize({ type: "attendance_streak", days: 10, date: "x" })?.badge).toBe("constancia-10");
     expect(recognize({ type: "attendance_streak", days: 11, date: "x" })).toBeNull();
     expect(currentStreak(["absent", "present", "late", "present"])).toBe(3);
+  });
+
+  it("premia la mejora de notas por décima, con tope, y solo si mejora", () => {
+    expect(gradeImprovement([4.0, 5.0], 5.0)).toBe(0.5);
+    expect(recognize({ type: "grade_improved", subject: "Matemática", delta: 0.5, date: "x" })?.points).toBe(5);
+    expect(recognize({ type: "grade_improved", subject: "Matemática", delta: 3.2, date: "x" })?.points).toBe(10);
+    expect(gradeImprovement([5.5], 5.0)).toBeNull();
+    expect(gradeImprovement([5.0], 5.0)).toBeNull();
+    expect(gradeImprovement([], 6.0)).toBeNull();
+  });
+
+  it("publica la tabla de puntos con las reglas vigentes", () => {
+    const rules = pointRules();
+    expect(rules.find((r) => r.conduct === "Llegar a tiempo")?.points).toBe("1 por día");
+    expect(rules.find((r) => r.conduct === "Asistir días seguidos")?.how).toContain("5, 10, 20, 40 y 60 días");
+    expect(rules.filter((r) => !r.active).map((r) => r.conduct)).toEqual(["Entregar tareas a tiempo", "Cumplir una meta de salud"]);
+    expect(rewardRef.onTime("2026-10-20")).toBe("llegada:2026-10-20");
   });
 
   it("el ranking premia la mejora, no el nivel absoluto", () => {

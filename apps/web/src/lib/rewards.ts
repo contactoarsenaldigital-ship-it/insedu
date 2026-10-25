@@ -4,8 +4,10 @@ import {
   canRedeem,
   currentStreak,
   earned,
+  gradeImprovement,
   levelOf,
   recognize,
+  rewardRef,
   uuidv7,
   type CourseGoal,
   type LedgerEntry,
@@ -29,8 +31,8 @@ function at(date: string, hhmm = "11:00") {
 export function initRewards(): State {
   const s = school();
   const ledger: LedgerEntry[] = [];
-  const push = (studentId: string, when: string, rec: Recognition | null, source: string) => {
-    if (rec) ledger.push({ id: uuidv7(), studentId, at: when, kind: "earn", points: rec.points, source, message: rec.message, badge: rec.badge });
+  const push = (studentId: string, when: string, rec: Recognition | null, source: string, ref?: string) => {
+    if (rec) ledger.push({ id: uuidv7(), studentId, at: when, kind: "earn", points: rec.points, source, message: rec.message, badge: rec.badge, ref });
   };
 
   // Asistencia: llegada a tiempo (refuerzo continuo) e hitos de constancia (refuerzo por hitos).
@@ -41,13 +43,24 @@ export function initRewards(): State {
     const statuses: (typeof sorted)[number]["status"][] = [];
     for (const r of sorted) {
       statuses.push(r.status);
-      if (r.status === "present") push(sid, r.arrivedAt ?? at(r.date), recognize({ type: "arrived_on_time", date: r.date }), "asistencia");
+      if (r.status === "present") push(sid, r.arrivedAt ?? at(r.date), recognize({ type: "arrived_on_time", date: r.date }), "asistencia", rewardRef.onTime(r.date));
       const streak = currentStreak(statuses);
-      push(sid, at(r.date, "11:05"), recognize({ type: "attendance_streak", days: streak, date: r.date }), "asistencia");
+      push(sid, at(r.date, "11:05"), recognize({ type: "attendance_streak", days: streak, date: r.date }), "asistencia", rewardRef.streak(r.date));
     }
   }
   // Anotaciones positivas y felicitaciones.
   for (const c of s.conduct) push(c.studentId, at(c.date, "15:00"), recognize({ type: "conduct", kind: c.kind, date: c.date }), "anotación");
+
+  // Mejora de notas: cada nota frente al promedio anterior del estudiante en la asignatura.
+  const bySubject = new Map<string, typeof s.grades>();
+  for (const gr of s.grades) bySubject.set(`${gr.studentId}|${gr.subject}`, [...(bySubject.get(`${gr.studentId}|${gr.subject}`) ?? []), gr]);
+  for (const grades of bySubject.values()) {
+    const sorted = [...grades].sort((a, b) => a.date.localeCompare(b.date));
+    sorted.forEach((gr, i) => {
+      const delta = gradeImprovement(sorted.slice(0, i).map((x) => x.value), gr.value);
+      if (delta) push(gr.studentId, at(gr.date, "16:00"), recognize({ type: "grade_improved", subject: gr.subject, delta, date: gr.date }), "notas", rewardRef.grade(gr.id.split("::")[0]!));
+    });
+  }
 
   const rewards: Reward[] = [
     { id: "rw-musica", name: "Elegir la música del recreo", description: "Un día a elección, coordinado con inspectoría.", cost: 30, stock: null, active: true },
@@ -91,6 +104,25 @@ export function award(studentId: string, rec: Recognition | null, source: string
   const e: LedgerEntry = { id: uuidv7(), studentId, at: new Date().toISOString(), kind: "earn", points: rec.points, source, message: rec.message, badge: rec.badge, ref };
   rewardsState().ledger.push(e);
   return e;
+}
+
+/** Como award, pero una sola vez por clave (ver rewardRef): no duplica si el hecho llega por dos vías. */
+export function awardOnce(studentId: string, rec: Recognition | null, source: string, ref: string) {
+  if (rewardsState().ledger.some((e) => e.studentId === studentId && e.kind === "earn" && e.ref === ref)) return null;
+  return award(studentId, rec, source, ref);
+}
+
+/** Llegada a tiempo registrada en el libro: solo cuenta el primer bloque, donde se toma la asistencia de llegada. */
+export function awardLessonArrival(studentId: string, date: string, block: string, status: string) {
+  if (block === "1-2" && status === "present") awardOnce(studentId, recognize({ type: "arrived_on_time", date }), "asistencia", rewardRef.onTime(date));
+}
+
+/** Llegada a tiempo y, si corresponde, hito de constancia según la asistencia diaria registrada. */
+export function awardDailyAttendance(studentId: string, date: string) {
+  const recs = school().attendance.filter((a) => a.studentId === studentId && a.date <= date).sort((a, b) => a.date.localeCompare(b.date));
+  if (recs.some((a) => a.date === date && a.status === "present")) awardOnce(studentId, recognize({ type: "arrived_on_time", date }), "asistencia", rewardRef.onTime(date));
+  const streak = currentStreak(recs.map((a) => a.status));
+  awardOnce(studentId, recognize({ type: "attendance_streak", days: streak, date }), "asistencia", rewardRef.streak(date));
 }
 
 export function summary(studentId: string) {

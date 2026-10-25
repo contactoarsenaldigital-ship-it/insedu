@@ -33,6 +33,8 @@ export type ReinforcementRules = {
   streakMilestones: number[];
   streakPoints: number;
   gradeImprovementPerTenth: number;
+  /** Tope de décimas reconocidas por una mejora (1,0 punto), para que un salto grande no domine el saldo. */
+  gradeImprovementMaxTenths: number;
   positiveConductPoints: number;
   commendationPoints: number;
   taskPoints: number;
@@ -44,6 +46,7 @@ export const DEFAULT_RULES: ReinforcementRules = {
   streakMilestones: [5, 10, 20, 40, 60],
   streakPoints: 10,
   gradeImprovementPerTenth: 1,
+  gradeImprovementMaxTenths: 10,
   positiveConductPoints: 5,
   commendationPoints: 15,
   taskPoints: 2,
@@ -63,7 +66,7 @@ export function recognize(ev: ReinforcementEvent, rules = DEFAULT_RULES): Recogn
         badge: `constancia-${ev.days}`,
       };
     case "grade_improved": {
-      const tenths = Math.round(ev.delta * 10);
+      const tenths = Math.min(Math.round(ev.delta * 10), rules.gradeImprovementMaxTenths);
       if (tenths <= 0) return null;
       return {
         points: tenths * rules.gradeImprovementPerTenth,
@@ -96,6 +99,44 @@ export function currentStreak(statuses: AttendanceStatus[]): number {
     else break;
   }
   return n;
+}
+
+/**
+ * Claves de idempotencia: el mismo hecho no da puntos dos veces, aunque llegue por dos vías
+ * (escáner y libro de clases) o se vuelva a guardar.
+ */
+export const rewardRef = {
+  onTime: (date: string) => `llegada:${date}`,
+  streak: (date: string) => `racha:${date}`,
+  grade: (evaluationId: string) => `nota:${evaluationId}`,
+};
+
+/**
+ * Mejora de una nota nueva respecto del promedio anterior del estudiante en la asignatura,
+ * en décimas (0,1). Null si no hay notas anteriores o si no mejoró.
+ */
+export function gradeImprovement(previous: number[], value: number): number | null {
+  if (!previous.length) return null;
+  const avg = previous.reduce((a, b) => a + b, 0) / previous.length;
+  const delta = Math.round((value - avg) * 10) / 10;
+  return delta > 0 ? delta : null;
+}
+
+export type PointRule = { conduct: string; points: string; how: string; active: boolean };
+
+const list = (xs: number[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} y ${xs.at(-1)}` : String(xs[0] ?? ""));
+
+/** Tabla «¿Cómo gano puntos?» que ven estudiantes, apoderados y docentes, derivada de las reglas vigentes. */
+export function pointRules(rules = DEFAULT_RULES): PointRule[] {
+  return [
+    { conduct: "Llegar a tiempo", points: `${rules.onTimePoints} por día`, how: "Al escanear tu credencial a tiempo o cuando tu profesor te registra presente en la primera hora (bloque 1-2). Cuenta una vez al día.", active: true },
+    { conduct: "Asistir días seguidos", points: `${rules.streakPoints} + insignia`, how: `Al completar ${list(rules.streakMilestones)} días seguidos asistiendo (los atrasos también cuentan).`, active: true },
+    { conduct: "Anotación positiva", points: String(rules.positiveConductPoints), how: "Cuando un profesor o inspectoría registra una anotación positiva.", active: true },
+    { conduct: "Felicitación", points: `${rules.commendationPoints} + insignia`, how: "Cuando recibes una felicitación en el libro de clases.", active: true },
+    { conduct: "Subir tus notas", points: `${rules.gradeImprovementPerTenth} por décima (máx. ${rules.gradeImprovementMaxTenths * rules.gradeImprovementPerTenth})`, how: "Cuando una nota nueva supera tu promedio anterior en esa asignatura. Por ejemplo, de promedio 4,5 a un 5,0 son 5 puntos.", active: true },
+    { conduct: "Entregar tareas a tiempo", points: String(rules.taskPoints), how: "Se activará cuando el colegio registre las tareas en INSEDU.", active: false },
+    { conduct: "Cumplir una meta de salud", points: String(rules.healthHabitPoints), how: "Se activará con las metas de hábitos saludables.", active: false },
+  ];
 }
 
 // ───────────────────────── Ranking de progreso ─────────────────────────
