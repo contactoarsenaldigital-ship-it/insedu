@@ -17,6 +17,7 @@ import { repo } from "@/lib/store";
 import type { Subject } from "@/lib/repository";
 import { addConduct, addEvaluation, createLesson, saveGrades, signLesson, updateLessonAttendance } from "../actions";
 import { readState } from "@/lib/state";
+import { DownloadLinks } from "@/components/DownloadLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -136,7 +137,13 @@ function Lessons({ subject, students, session, canWrite, canCorrect }: { subject
       )}
 
       <section className="section">
-        <h2>Clases registradas</h2>
+        <div className="section-head">
+          <h2>Clases registradas</h2>
+          <div className="downloads-stack">
+            <DownloadLinks tipo="asistencia-clases" params={{ subjectId: subject.id }} caption="Asistencia por clase" />
+            <DownloadLinks tipo="asistencia-diaria" params={{ subjectId: subject.id, courseId: subject.courseId }} caption="Asistencia diaria del curso" />
+          </div>
+        </div>
         {!lessons.length && <p className="muted">Aún no hay clases registradas en esta asignatura.</p>}
         {lessons.map((l) => <LessonCard key={l.id} lesson={l} students={students} subject={subject} canWrite={canWrite} canCorrect={canCorrect} isAuthor={l.teacherId === session.person.id} />)}
       </section>
@@ -215,7 +222,10 @@ function Grades({ subject, students, canWrite, canCorrect, selected }: { subject
       {editing && <GradeEditor subject={subject} evaluation={editing} students={students} grades={grades} canCorrect={canCorrect} />}
 
       <section className="section">
-        <h2>Planilla de notas</h2>
+        <div className="section-head">
+          <h2>Planilla de notas</h2>
+          <DownloadLinks tipo="notas" params={{ subjectId: subject.id }} />
+        </div>
         <p className="muted">Promedio ponderado aproximado a la décima (0,05 sube). Notas bajo 4,0 marcadas con ▼.</p>
         <div className="table-scroll">
           <table className="data grades">
@@ -352,7 +362,11 @@ function Conduct({ subject, students, canWrite }: { subject: Subject; students: 
         </section>
       )}
       <section className="section">
-        <h2>Anotaciones del curso</h2>
+        <div className="section-head">
+          <h2>Anotaciones del curso</h2>
+          <DownloadLinks tipo="anotaciones" params={{ subjectId: subject.id, courseId: subject.courseId }} />
+        </div>
+        <p className="muted">Se muestran las 40 más recientes; la planilla descargable las incluye todas.</p>
         <div className="table-scroll">
           <table className="data">
             <thead><tr><th>Fecha</th><th>Estudiante</th><th>Tipo</th><th>Hecho</th><th>Registrado por</th></tr></thead>

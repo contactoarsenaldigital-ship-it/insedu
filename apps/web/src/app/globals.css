@@ -336,3 +336,12 @@ ol.messages li.mine { justify-self: end; background: #eef3f8; border-color: #d4e
   .md-view h1, .md-view h2, .md-view h3 { break-after: avoid; }
   .md-view tr, .md-view li, .md-view .katex-display { break-inside: avoid; }
 }
+
+/* ── Descargas Excel y CSV ── */
+.section-head { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.section-head h2 { margin: 0; }
+.downloads { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.downloads .btn { text-decoration: none; }
+.downloads-stack { display: grid; gap: 6px; justify-items: end; }
+.downloads > span { font-size: .88rem; }
+@media (max-width: 640px) { .downloads-stack { justify-items: start; } }

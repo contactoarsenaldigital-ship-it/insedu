@@ -7,11 +7,15 @@ import {
   toDelimited,
 } from "@insedu/domain";
 import { school } from "@/lib/demo";
+import { canExportMineduc, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 
 /** Descarga de archivos para el encargado de informática (Etapa 1: colegio sintético). */
 export async function GET(req: Request, { params }: { params: Promise<{ tipo: string }> }) {
   await readState();
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Ingrese para descargar." }, { status: 401 });
+  if (!canExportMineduc(session)) return NextResponse.json({ error: "Solo dirección y administración exportan a MINEDUC." }, { status: 403 });
   const { tipo } = await params;
   const url = new URL(req.url);
   const s = school();

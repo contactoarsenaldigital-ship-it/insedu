@@ -1,11 +1,20 @@
 import { ATTENDANCE_TEMPLATE, checkAttendance, checkGrades, GRADES_TEMPLATE } from "@insedu/domain";
+import { redirect } from "next/navigation";
 import { school } from "@/lib/demo";
+import { canExportMineduc, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 
 export const metadata = { title: "Exportación MINEDUC" };
 
 export default async function ITPage() {
   await readState();
+  const session = await getSession();
+  if (!session) redirect("/ingresar?next=/informatica");
+  if (!canExportMineduc(session)) {
+    return (
+      <main className="wrap"><h1>Exportación MINEDUC</h1><p className="notice warn">Solo dirección y administración del establecimiento exportan los archivos para MINEDUC. Ingrese, por ejemplo, como Daniela Castro.</p></main>
+    );
+  }
   const s = school();
   const st = new Map(s.students.map((x) => [x.id, x]));
   const week = s.schoolDays.slice(-5);

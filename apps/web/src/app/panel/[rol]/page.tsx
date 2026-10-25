@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { formatRut, maskRut, attendanceRate, recognize, currentStreak, type Alert } from "@insedu/domain";
 import { courseById, dec, fullName, pct, reportFor, school, studentById } from "@/lib/demo";
 import { readState } from "@/lib/state";
+import { suggest } from "@/lib/exports";
+import { DownloadLinks } from "@/components/DownloadLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +51,10 @@ function HeadTeacher() {
       </div>
 
       <section className="section">
-        <h2>Indicadores deficitarios priorizados</h2>
+        <div className="section-head">
+          <h2>Indicadores deficitarios priorizados</h2>
+          <DownloadLinks tipo="alertas" params={{ courseId: course.id }} />
+        </div>
         <p className="muted">Cada alerta indica el valor y el umbral configurado por el colegio. Las alertas apoyan su decisión; no diagnostican ni sancionan.</p>
         <div className="table-scroll">
           <table className="data">
@@ -78,7 +83,10 @@ function HeadTeacher() {
       </section>
 
       <section className="section">
-        <h2>Ranking de progreso del curso</h2>
+        <div className="section-head">
+          <h2>Ranking de progreso del curso</h2>
+          <DownloadLinks tipo="ranking" params={{ courseId: course.id }} caption="Curso completo" />
+        </div>
         <p className="muted">Ordena por mejora respecto de la propia línea base de cada estudiante; 50 = sin cambio.</p>
         <div className="table-scroll">
           <table className="data">
@@ -105,12 +113,6 @@ function HeadTeacher() {
   );
 }
 
-function suggest(alerts: Alert[]) {
-  if (alerts.some((a) => a.dimension === "conducta" && a.severity === "alta")) return "Coordinar con inspectoría y citar al apoderado.";
-  if (alerts.some((a) => a.dimension === "asistencia")) return "Contactar al apoderado y revisar causas de inasistencia.";
-  if (alerts.some((a) => a.dimension === "academica")) return "Plan de reforzamiento con docentes de asignatura.";
-  return "Derivar a orientación o enfermería según corresponda.";
-}
 
 const arrow = (x: number) => (x > 0.05 ? <span className="tag ok">▲ mejora</span> : x < -0.05 ? <span className="tag alta">▼ baja</span> : <span className="muted">= estable</span>);
 
@@ -190,7 +192,10 @@ function DirectorView() {
   return (
     <main className="wrap">
       <span className="muted">Dirección · {s.name}</span>
-      <h1>¿Cómo está el colegio?</h1>
+      <div className="section-head">
+        <h1>¿Cómo está el colegio?</h1>
+        <DownloadLinks tipo="cursos" />
+      </div>
       <div className="table-scroll section">
         <table className="data">
           <thead><tr><th>Curso</th><th>Asistencia</th><th>Promedio</th><th>Con alertas</th><th>Asistencia · Académica · Conducta · Salud</th></tr></thead>
