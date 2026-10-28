@@ -17,3 +17,4 @@ export * from "./safeguarding/protocols";
 export * from "./rewards";
 export * from "./messaging";
 export * from "./spreadsheet";
+export * from "./riskboard";

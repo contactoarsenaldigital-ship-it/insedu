@@ -14,7 +14,7 @@ export const metadata = { title: "Salvaguarda" };
 export const dynamic = "force-dynamic";
 
 
-export default async function SafeguardingHome({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
+export default async function SafeguardingHome({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; estudiante?: string }> }) {
   await readState();
   const sp = await searchParams;
   const session = await getSession();
@@ -77,6 +77,12 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
         Abrir un caso exige verificación en dos pasos y motivo; cada acceso queda registrado.{" "}
         {fresh ? <span className="tag ok">✓ Identidad verificada</span> : <Link href="/verificar?next=/salvaguarda">Verificar identidad ahora</Link>}
       </p>
+
+      <Link href="/salvaguarda/indicadores" className="card section" style={{ display: "block" }}>
+        <span className="eyebrow">Tablero de indicadores</span>
+        <h3>Estudiantes con puntos de atención</h3>
+        <span className="muted">Rendimiento, conducta, asistencia y salud por nivel, curso y estudiante, con su evolución y acciones sugeridas.</span>
+      </Link>
 
       {inbox.protocols.some((p) => !p.completedAt) && (
         <section className="section">
@@ -141,13 +147,13 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
         <p className="muted">La bandeja muestra solo metadatos; el contenido se descifra al abrir cada caso.</p>
       </section>
 
-      <section className="section">
+      <section className="section" id="abrir-caso">
         <h2>Abrir un caso</h2>
         <form action={createCase} className="card">
           <div className="grid">
             <div className="field">
               <label htmlFor="studentId">Estudiante</label>
-              <select id="studentId" name="studentId" required defaultValue="">
+              <select id="studentId" name="studentId" required defaultValue={school().students.some((s) => s.id === sp.estudiante) ? sp.estudiante : ""}>
                 <option value="" disabled>Seleccione…</option>
                 {school().students.map((s) => <option key={s.id} value={s.id}>{studentLabel(s.id)}</option>)}
               </select>
