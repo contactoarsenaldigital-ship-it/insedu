@@ -58,7 +58,7 @@ function Answering({ survey, meId, sent }: { survey: Survey; meId: string; sent:
         <p className="notice">Tus respuestas son <strong>confidenciales</strong>: solo las ve el equipo de convivencia del colegio. No las verán tus compañeros, ni tus profesores, ni se usan para poner notas o anotaciones. Puedes dejar en blanco las preguntas opcionales.</p>
       )}
       {survey.anonymous && <p className="notice">Encuesta anónima: los resultados se ven sin nombres.</p>}
-      <AnswerForm surveyId={survey.id} questions={survey.questions} classmates={classmates} previous={previous?.answers} />
+      <AnswerForm key={previous?.at ?? "nueva"} surveyId={survey.id} questions={survey.questions} classmates={classmates} previous={previous?.answers} />
     </section>
   );
 }

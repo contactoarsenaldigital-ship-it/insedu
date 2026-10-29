@@ -11,7 +11,10 @@ export function AnswerForm({ surveyId, questions, classmates, previous }: {
   previous?: Answers;
 }) {
   const [state, act, busy] = useActionState(answerSurvey, { answers: previous } as AnswerState);
+  const [editing, setEditing] = useState(false);
   const initial = state.answers ?? previous ?? {};
+  // Ya respondida: se muestra bloqueada hasta que la persona pida corregirla.
+  const locked = !!previous && !editing && !state.issues;
   return (
     // La clave nueva tras un error remonta el formulario con lo ya elegido (React lo reinicia al enviar).
     <form key={state.attempt ?? 0} action={act} className="survey-form">
@@ -19,6 +22,7 @@ export function AnswerForm({ surveyId, questions, classmates, previous }: {
       {state.issues?.length ? (
         <div className="notice warn" role="alert"><strong>Revise:</strong><ul style={{ margin: "6px 0 0" }}>{state.issues.map((i) => <li key={i}>{i}</li>)}</ul></div>
       ) : null}
+      <fieldset className="plain" disabled={locked || busy}>
       {questions.map((q, n) => (
         <fieldset key={q.id} className="card question">
           <legend>{n + 1}. {q.text}{!q.required && <span className="muted"> (opcional)</span>}</legend>
@@ -45,7 +49,11 @@ export function AnswerForm({ surveyId, questions, classmates, previous }: {
           {q.type === "texto" && <textarea name={q.id} maxLength={1000} defaultValue={(initial[q.id] as string) ?? ""} required={q.required} aria-label={q.text} />}
         </fieldset>
       ))}
-      <button className="btn primary" disabled={busy}>Enviar respuestas</button>
+      </fieldset>
+      <div className="row-inline">
+        <button className="btn primary" disabled={busy || locked}>{busy ? "Enviando…" : locked ? "Respuestas enviadas ✓" : "Enviar respuestas"}</button>
+        {locked && <button type="button" className="btn secondary small" onClick={() => setEditing(true)}>Corregir mis respuestas</button>}
+      </div>
     </form>
   );
 }
