@@ -18,6 +18,7 @@ const ITEMS: Item[] = [
   { href: "/salvaguarda", label: "Salvaguarda", roles: ["nurse", "psychologist", "counselor", "social_worker", "safeguarding_lead", "director"] },
   { href: "/escanear", label: "Escanear", roles: [...STAFF_TEACH, "inspector", "gatekeeper"] },
   { href: "/copiloto", label: "Copiloto", roles: STAFF_TEACH },
+  { href: "/configuracion", label: "Configuración", roles: ["school_admin", "director"] },
   { href: "/informatica", label: "Informática", roles: ["school_admin", "director"] },
   { href: "/demo", label: "Demo", roles: ["school_admin", "director"] },
 ];

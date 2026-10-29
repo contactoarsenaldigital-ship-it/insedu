@@ -6,7 +6,7 @@ import type { BreakGlassGrant, Role } from "@insedu/domain";
 import { isVaultDenied, VaultDenied, type CaseStatus, type DepositKind } from "@insedu/domain/server";
 import { publish } from "@/lib/instructions";
 import { getSession } from "@/lib/session";
-import { STAFF } from "@/lib/store";
+import { allStaff } from "@/lib/store";
 import { actorOf, vaultService } from "@/lib/vault";
 
 /**
@@ -120,7 +120,7 @@ async function setSubstitutionImpl(f: FormData) {
     "/salvaguarda",
     async (a) => {
       const approver = str(f, "approver");
-      if (!STAFF.some((p) => p.id === approver)) throw new VaultDenied("Seleccione quién aprueba la suplencia");
+      if (!allStaff().some((p) => p.id === approver)) throw new VaultDenied("Seleccione quién aprueba la suplencia");
       const from = new Date().toISOString();
       const until = new Date(`${str(f, "until")}T23:59:59-03:00`).toISOString();
       (await vaultService()).setSubstitution(a, str(f, "substituteId"), from, until, [a.userId, approver]);

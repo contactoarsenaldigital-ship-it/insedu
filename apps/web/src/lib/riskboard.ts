@@ -1,5 +1,6 @@
 import "server-only";
-import { evaluateRisk, histogram, indicatorsByPeriod, periodsOf, type Course, type Student, type StudentRisk } from "@insedu/domain";
+import { evaluateRisk, histogram, indicatorsByPeriod, periodsOf, RISK_RULES, type Course, type Student, type StudentRisk } from "@insedu/domain";
+import { settings } from "./accounts";
 import { school } from "./demo";
 import { nutritionOf } from "./health";
 import type { Session } from "./session";
@@ -23,7 +24,14 @@ export type LevelGroup = keyof typeof LEVEL_GROUPS;
 
 export type StudentRow = { student: Student; course: Course; risk: StudentRisk; indicators: ReturnType<typeof indicatorsByPeriod> };
 
+/** Umbrales vigentes: los que definió administración en Configuración → Parámetros. */
+export function riskRules(): typeof RISK_RULES {
+  const p = settings();
+  return { ...RISK_RULES, minAverage: p.riskMinAverage, minAttendance: p.riskMinAttendance, maxNegatives: p.riskMaxNegatives, maxNurseVisits: p.riskMaxNurseVisits };
+}
+
 export function riskboard() {
+  const rules = riskRules();
   const s = school();
   const periods = periodsOf(s.schoolDays);
   const by = <T extends { studentId: string }>(xs: T[]) => {
@@ -44,7 +52,7 @@ export function riskboard() {
       attendance: attendance.get(student.id) ?? [],
       health: health.get(student.id) ?? [],
     });
-    return { student, course: courses.get(student.courseId)!, indicators, risk: evaluateRisk(indicators, nutritionOf(student.id)) };
+    return { student, course: courses.get(student.courseId)!, indicators, risk: evaluateRisk(indicators, nutritionOf(student.id), rules) };
   });
 
   const PRIORITY = { alta: 0, media: 1, seguimiento: 2 } as const;

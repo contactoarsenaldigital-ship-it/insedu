@@ -1,12 +1,20 @@
+import Link from "next/link";
 import type { Role } from "@insedu/domain";
 import { loginPeople } from "@/lib/store";
-import { getSession } from "@/lib/session";
-import { login, logout } from "./actions";
+import { demoLoginEnabled, getSession } from "@/lib/session";
+import { login, loginWithPassword, logout } from "./actions";
 import { readState } from "@/lib/state";
 import { Icon } from "@/components/Icon";
 import { initialsOf } from "@/components/SessionPill";
 
 export const metadata = { title: "Ingresar" };
+
+const ERRORS: Record<string, string> = {
+  cuenta: "Correo o clave incorrectos.",
+  bloqueada: "Por seguridad, la cuenta quedó bloqueada unos minutos tras varios intentos fallidos. Intente más tarde o pida ayuda a administración.",
+  vencido: "El código venció o la verificación se interrumpió. Ingrese de nuevo su correo y clave.",
+  agotado: "Se agotaron los intentos para ese código. Ingrese de nuevo su correo y clave.",
+};
 
 const GROUPS: { title: string; roles: Role[] }[] = [
   { title: "Docentes", roles: ["teacher", "head_teacher"] },
@@ -40,11 +48,22 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="auth-panel">
         <div className="inner">
           <h1>Acceso usuarios</h1>
-          <p className="notice">
-            Demostración: elija un usuario ficticio. En el producto, cada persona ingresa con su cuenta y los perfiles
-            sensibles usan verificación en dos pasos.
-          </p>
-          {error && <p className="notice warn" role="alert">Usuario no válido.</p>}
+          {error && <p className="notice warn" role="alert">{ERRORS[error] ?? "Usuario no válido."}</p>}
+
+          <form action={loginWithPassword} className="card account-login">
+            <h2 className="people-group" style={{ margin: 0 }}>Ingresar con su cuenta</h2>
+            <input type="hidden" name="next" value={next ?? ""} />
+            <div className="field"><label htmlFor="email">Correo</label><input id="email" name="email" type="email" autoComplete="username" required /></div>
+            <div className="field"><label htmlFor="password">Clave</label><input id="password" name="password" type="password" autoComplete="current-password" required /></div>
+            <button className="btn primary">Continuar</button>
+            <p className="muted">Después le pediremos su código de verificación de 6 dígitos. ¿Aún no tiene cuenta? <Link href="/solicitar-acceso">Solicitar acceso</Link></p>
+          </form>
+
+          {demoLoginEnabled() && (
+            <p className="notice" style={{ marginTop: 24 }}>
+              Demostración: también puede elegir un usuario ficticio, sin clave, para recorrer cada perfil.
+            </p>
+          )}
           {session && (
             <form action={logout} className="person-row" style={{ marginTop: 16 }}>
               <span className="initials" aria-hidden="true">{initialsOf(session.person.name)}</span>
@@ -56,7 +75,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </form>
           )}
 
-          {GROUPS.map((g, gi) => {
+          {demoLoginEnabled() && GROUPS.map((g, gi) => {
             const members = people.filter((p) => groupOf(p.roles) === gi);
             if (!members.length) return null;
             return (

@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import type { Scope } from "@insedu/domain";
+import { accountById, personOf } from "./accounts";
 import { findPerson, loginPeople, repo } from "./store";
 import type { Person } from "./repository";
 
@@ -38,7 +39,8 @@ export function decode(token: string | undefined): string | null {
   return a.length === b.length && timingSafeEqual(a, b) ? id : null;
 }
 
-export type Session = { person: Person; scope: Scope; lastStrongAuthAt?: string };
+/** `accountId`: presente cuando la persona ingresó con su cuenta (y no como usuario de demostración). */
+export type Session = { person: Person; scope: Scope; lastStrongAuthAt?: string; accountId?: string };
 
 // ───────────── Verificación en dos pasos (demostración) ─────────────
 // En producción: TOTP/passkey de Supabase Auth. Aquí el código se calcula con HMAC por
@@ -83,10 +85,45 @@ export function scopeOf(personId: string): Scope {
   };
 }
 
+/** Ingreso con usuarios ficticios: disponible en la maqueta; con datos reales queda desactivado. */
+export const demoLoginEnabled = () => process.env.INSEDU_DATA_MODE !== "real" && process.env.INSEDU_DEMO_LOGIN !== "false";
+
 export async function getSession(): Promise<Session | null> {
   const id = decode((await cookies()).get(COOKIE)?.value);
-  const person = id && loginPeople().some((p) => p.id === id) ? findPerson(id) : undefined;
-  return person ? { person, scope: scopeOf(person.id), lastStrongAuthAt: await strongAuthAt(person.id) } : null;
+  let person: Person | undefined;
+  let accountId: string | undefined;
+  if (id?.startsWith("acc-")) {
+    // Cuenta propia: solo mientras siga activa (una suspensión corta la sesión en la siguiente solicitud).
+    const account = accountById(id);
+    if (account?.status === "activa") {
+      person = personOf(account);
+      accountId = account.id;
+    }
+  } else if (id && demoLoginEnabled() && loginPeople().some((p) => p.id === id)) {
+    person = findPerson(id);
+  }
+  return person ? { person, scope: scopeOf(person.id), lastStrongAuthAt: await strongAuthAt(person.id), accountId } : null;
+}
+
+// ───────────── Ingreso con cuenta: entre la clave y el código ─────────────
+// Tras una clave correcta queda una cookie firmada de 10 minutos que solo sirve para ingresar el
+// segundo factor; la sesión se crea recién cuando el código es válido.
+const PENDING_COOKIE = "insedu_pending_login";
+
+export async function setPendingLogin(accountId: string, next: string) {
+  const v = `pending|${accountId}|${Date.now() + 10 * 60_000}|${next}`;
+  (await cookies()).set(PENDING_COOKIE, `${v}.${sign(v)}`, { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 600 });
+}
+
+export async function pendingLogin(): Promise<{ accountId: string; next: string } | null> {
+  const v = decode((await cookies()).get(PENDING_COOKIE)?.value);
+  const [kind, accountId, exp, ...rest] = v?.split("|") ?? [];
+  if (kind !== "pending" || !accountId || Number(exp) < Date.now()) return null;
+  return { accountId, next: rest.join("|") || "/" };
+}
+
+export async function clearPendingLogin() {
+  (await cookies()).delete(PENDING_COOKIE);
 }
 
 /** Registran asistencia escaneando credenciales: docentes, inspectoría y portería (como el menú «Escanear»). */
@@ -108,4 +145,5 @@ export async function setSession(userId: string) {
 export async function clearSession() {
   (await cookies()).delete(COOKIE);
   (await cookies()).delete(MFA_COOKIE);
+  (await cookies()).delete(PENDING_COOKIE);
 }

@@ -5,7 +5,7 @@ import { DEPOSIT_LABEL, VaultService } from "@insedu/domain/server";
 import { school } from "@/lib/demo";
 import { fmtDT, studentLabel, who } from "@/lib/format";
 import { getSession } from "@/lib/session";
-import { STAFF } from "@/lib/store";
+import { allStaff } from "@/lib/store";
 import { actorOf, FORMAL_SUBSTITUTE_ID, TITULAR_ID, vault, vaultService } from "@/lib/vault";
 import { createCase, endSubstitution, reviewDeposit, setSubstitution } from "./actions";
 import { readState } from "@/lib/state";
@@ -181,7 +181,7 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
               <div className="field">
                 <label htmlFor="substituteId">Suplente</label>
                 <select id="substituteId" name="substituteId" defaultValue={FORMAL_SUBSTITUTE_ID}>
-                  {STAFF.filter((p) => p.id !== TITULAR_ID && p.roles.some((r) => ["counselor", "psychologist", "social_worker"].includes(r))).map((p) => (
+                  {allStaff().filter((p) => p.id !== TITULAR_ID && p.roles.some((r) => ["counselor", "psychologist", "social_worker"].includes(r))).map((p) => (
                     <option key={p.id} value={p.id}>{p.name} · {p.description}</option>
                   ))}
                 </select>
@@ -189,7 +189,7 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
               <div className="field"><label htmlFor="until">Hasta</label><input id="until" name="until" type="date" required /></div>
               <div className="field">
                 <label htmlFor="approver">Aprueba</label>
-                <select id="approver" name="approver">{STAFF.filter((p) => p.roles.includes("director")).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                <select id="approver" name="approver">{allStaff().filter((p) => p.roles.includes("director")).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
               </div>
             </div>
             <button className="btn">Activar suplencia</button>

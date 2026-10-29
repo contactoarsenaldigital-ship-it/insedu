@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { formatRut, NUTRITION_LABEL, RISK_RULES } from "@insedu/domain";
+import { formatRut, NUTRITION_LABEL } from "@insedu/domain";
 import { IndicatorBars } from "@/components/RiskCharts";
 import { Breadcrumb, FactorChips, PriorityTag, RISK_DISCLAIMER, RiskNoAccess, TrendTag } from "@/components/RiskBits";
 import { fmtDate } from "@/lib/format";
 import { nutritionOf, profile } from "@/lib/health";
-import { canSeeRiskboard, LEVEL_GROUPS, riskboard, type LevelGroup } from "@/lib/riskboard";
+import { canSeeRiskboard, LEVEL_GROUPS, riskboard, riskRules, type LevelGroup } from "@/lib/riskboard";
 import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 import { vault } from "@/lib/vault";
@@ -23,6 +23,7 @@ export default async function StudentRisk({ params }: { params: Promise<{ id: st
   if (!canSeeRiskboard(session)) return <RiskNoAccess />;
 
   const rb = riskboard();
+  const RISK_RULES = riskRules();
   const row = rb.rows.find((r) => r.student.id === id);
   if (!row) notFound();
   const { student: st, course, risk, indicators } = row;
@@ -92,9 +93,9 @@ export default async function StudentRisk({ params }: { params: Promise<{ id: st
       <section className="section">
         <h2>Evolución por quincena</h2>
         <div className="indicator-grid">
-          <IndicatorBars title="Promedio de notas" values={indicators.map((i) => i.average)} labels={labels} max={7} threshold={RISK_RULES.minAverage} thresholdLabel="4,0" isBad={(v) => v < RISK_RULES.minAverage} format={dec} />
+          <IndicatorBars title="Promedio de notas" values={indicators.map((i) => i.average)} labels={labels} max={7} threshold={RISK_RULES.minAverage} thresholdLabel={dec(RISK_RULES.minAverage)} isBad={(v) => v < RISK_RULES.minAverage} format={dec} />
           <IndicatorBars title="Anotaciones negativas" values={indicators.map((i) => i.negatives)} labels={labels} max={Math.max(4, ...indicators.map((i) => i.negatives))} threshold={2} thresholdLabel="2 por quincena" isBad={(v) => v >= 2} format={String} />
-          <IndicatorBars title="Asistencia" values={indicators.map((i) => (i.attendance == null ? null : i.attendance * 100))} labels={labels} max={100} threshold={RISK_RULES.minAttendance * 100} thresholdLabel="85 %" isBad={(v) => v < RISK_RULES.minAttendance * 100} format={(v) => `${Math.round(v)}%`} />
+          <IndicatorBars title="Asistencia" values={indicators.map((i) => (i.attendance == null ? null : i.attendance * 100))} labels={labels} max={100} threshold={RISK_RULES.minAttendance * 100} thresholdLabel={`${Math.round(RISK_RULES.minAttendance * 100)} %`} isBad={(v) => v < RISK_RULES.minAttendance * 100} format={(v) => `${Math.round(v)}%`} />
           <IndicatorBars title="Atenciones de enfermería" values={indicators.map((i) => i.nurseVisits)} labels={labels} max={Math.max(3, ...indicators.map((i) => i.nurseVisits))} threshold={2} thresholdLabel="2 por quincena" isBad={(v) => v >= 2} format={String} />
         </div>
         <div className="table-scroll section">

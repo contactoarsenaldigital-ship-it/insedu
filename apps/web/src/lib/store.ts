@@ -1,5 +1,6 @@
 import "server-only";
 import { SUBJECTS, uuidv7, type ConductRecord, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { accountById, accountStaff, personOf } from "./accounts";
 import { school } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
 
@@ -65,11 +66,20 @@ export function loginPeople(): Person[] {
   return [...STAFF, studentPerson(DEMO_STUDENT_ID)!, guardianOf(DEMO_STUDENT_ID)!];
 }
 
-/** Resuelve cualquier persona por id: personal, estudiantes o apoderados. */
+/** Resuelve cualquier persona por id: personal, estudiantes, apoderados o cuentas propias. */
 export function findPerson(id: string): Person | undefined {
   if (id.startsWith("guardian-of-")) return guardianOf(id.slice("guardian-of-".length));
   if (id.startsWith("student-")) return studentPerson(id);
+  if (id.startsWith("acc-")) {
+    const a = accountById(id);
+    return a ? personOf(a) : undefined;
+  }
   return STAFF.find((p) => p.id === id);
+}
+
+/** Personal del colegio ficticio más el personal con cuenta activa. */
+export function allStaff(): Person[] {
+  return [...STAFF, ...accountStaff()];
 }
 
 type State = {

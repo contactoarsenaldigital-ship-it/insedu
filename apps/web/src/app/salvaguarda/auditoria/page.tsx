@@ -5,7 +5,7 @@ import { isVaultDenied } from "@insedu/domain/server";
 import { school } from "@/lib/demo";
 import { fmtDT, studentLabel, who } from "@/lib/format";
 import { getSession } from "@/lib/session";
-import { STAFF } from "@/lib/store";
+import { allStaff } from "@/lib/store";
 import { actorOf, vault, vaultService } from "@/lib/vault";
 import { requestBreakGlass } from "../actions";
 import { readState } from "@/lib/state";
@@ -127,7 +127,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
               </div>
               <div className="field">
                 <label htmlFor="approver">Segunda aprobación</label>
-                <select id="approver" name="approver">{STAFF.filter((p) => p.id !== session.person.id && (p.roles.includes("school_admin") || p.roles.includes("inspector"))).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.description}</option>)}</select>
+                <select id="approver" name="approver">{allStaff().filter((p) => p.id !== session.person.id && (p.roles.includes("school_admin") || p.roles.includes("inspector"))).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.description}</option>)}</select>
               </div>
             </div>
             <div className="field"><label htmlFor="justification">Justificación</label><textarea id="justification" name="justification" rows={3} required minLength={20} /></div>

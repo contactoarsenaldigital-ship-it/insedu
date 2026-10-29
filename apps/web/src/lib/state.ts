@@ -3,6 +3,7 @@ import type { SyntheticSchool } from "@insedu/domain";
 import { VAULT_COLLECTIONS } from "@insedu/domain/server";
 import { pgPool, StateSync, type Collection, type SqlPool } from "@insedu/persistence";
 import { generateDemoSchool } from "./demo";
+import { initAccounts } from "./accounts";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
@@ -39,6 +40,7 @@ function mainCollections(): Collection[] {
   const store = () => G.__insedu_store as Record<string, unknown>;
   const rewards = () => G.__insedu_rewards as Record<string, unknown>;
   const msgs = () => G.__insedu_msgs as Record<string, unknown>;
+  const accounts = () => G.__insedu_accounts as Record<string, unknown>;
   return [
     {
       name: "school.meta",
@@ -53,6 +55,7 @@ function mainCollections(): Collection[] {
     ...["subjects", "evaluations", "lessons", "corrections"].map((f) => arrayOf(`libro.${f}`, store, f)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
+    ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
     { name: "salvaguarda.instrucciones", key: byId, get: () => G.__insedu_instr ?? [], set: (items) => void (G.__insedu_instr = items) },
     {
       name: "salud.fichas",
@@ -68,6 +71,7 @@ function resetMain() {
   G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
+  G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [] };
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
 }
@@ -77,6 +81,7 @@ function seedMain() {
   G.__insedu_store = initStore(); // agrupa notas en evaluaciones (usa el colegio recién generado)
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();
+  G.__insedu_accounts = initAccounts();
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
 }

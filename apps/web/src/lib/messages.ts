@@ -2,7 +2,8 @@ import "server-only";
 import { canMessage, deliveryWindow, uuidv7, type Participant } from "@insedu/domain";
 import { school } from "./demo";
 import type { Person } from "./repository";
-import { findPerson, guardianOf, repo, STAFF } from "./store";
+import { settings } from "./accounts";
+import { allStaff, findPerson, guardianOf, repo } from "./store";
 
 /** Comunicados y mensajes de la Etapa 1 (en memoria). */
 export type Announcement = {
@@ -92,14 +93,14 @@ export function recipientsFor(me: Person): Person[] {
   if (me.roles.includes("student")) return [];
   if (me.roles.includes("guardian_academic")) {
     const course = rel.courseOfStudent(me.wards?.[0] ?? "");
-    const teachers = STAFF.filter((p) => teacherCourses(p.id).includes(course ?? ""));
-    const others = STAFF.filter((p) => p.roles.includes("inspector") || p.roles.includes("director"));
+    const teachers = allStaff().filter((p) => teacherCourses(p.id).includes(course ?? ""));
+    const others = allStaff().filter((p) => p.roles.includes("inspector") || p.roles.includes("director"));
     return [...new Set([...teachers, ...others])].filter((p) => allowed(me, p).allow);
   }
   // Personal: otros funcionarios + apoderados de sus cursos.
   const courses = me.roles.some((r) => r === "inspector" || r === "director") ? school().courses.map((c) => c.id) : teacherCourses(me.id);
   const guardians = school().students.filter((s) => courses.includes(s.courseId)).map((s) => guardianOf(s.id)!);
-  return [...STAFF.filter((p) => p.id !== me.id), ...guardians].filter((p) => allowed(me, p).allow);
+  return [...allStaff().filter((p) => p.id !== me.id), ...guardians].filter((p) => allowed(me, p).allow);
 }
 
 export function threadsOf(personId: string) {
@@ -111,7 +112,8 @@ export function threadsOf(personId: string) {
 export function send(from: Person, to: Person, subject: string, body: string, threadId?: string) {
   const st = msgState();
   const now = new Date();
-  const w = deliveryWindow(now, school().timeZone);
+  const s = settings(); // horario de contacto configurado por administración
+  const w = deliveryWindow(now, school().timeZone, { startHour: s.contactStartHour, endHour: s.contactEndHour, weekdays: [1, 2, 3, 4, 5] });
   const msg: Message = {
     id: uuidv7(),
     from: from.id,

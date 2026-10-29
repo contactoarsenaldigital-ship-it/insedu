@@ -3,3 +3,4 @@ import "./server-only-guard";
 export * from "./safeguarding/crypto";
 export * from "./ai/gemini";
 export * from "./safeguarding/service";
+export * from "./auth/secrets";
