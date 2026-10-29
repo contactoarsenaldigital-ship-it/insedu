@@ -61,9 +61,17 @@ export function studentPerson(studentId: string): Person | undefined {
 /** Estudiante y apoderada habilitados para ingresar en la demostración. */
 export const DEMO_STUDENT_ID = "student-001";
 
+/** Un estudiante por curso, para probar lo que ve cada curso (encuestas, comunicados). */
+export function demoStudentIds(): string[] {
+  const s = school();
+  return s.courses
+    .map((c) => (c.id === s.students.find((x) => x.id === DEMO_STUDENT_ID)?.courseId ? DEMO_STUDENT_ID : s.students.find((x) => x.courseId === c.id)?.id))
+    .filter((id): id is string => !!id);
+}
+
 /** Personas que pueden ingresar en la demostración. */
 export function loginPeople(): Person[] {
-  return [...STAFF, studentPerson(DEMO_STUDENT_ID)!, guardianOf(DEMO_STUDENT_ID)!];
+  return [...STAFF, ...demoStudentIds().map((id) => studentPerson(id)!), guardianOf(DEMO_STUDENT_ID)!];
 }
 
 /** Resuelve cualquier persona por id: personal, estudiantes, apoderados o cuentas propias. */
