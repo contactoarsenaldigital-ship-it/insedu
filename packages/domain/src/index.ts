@@ -18,4 +18,5 @@ export * from "./rewards";
 export * from "./messaging";
 export * from "./spreadsheet";
 export * from "./riskboard";
+export * from "./surveys";
 export * from "./auth/policy";

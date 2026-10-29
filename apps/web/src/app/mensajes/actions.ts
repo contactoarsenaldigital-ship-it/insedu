@@ -67,7 +67,7 @@ async function publishAnnouncementImpl(f: FormData) {
 
 async function confirmReadImpl(f: FormData) {
   const p = await me();
-  markRead(str(f, "id"), p.id);
+  markRead(str(f, "id"), p);
   back("/mensajes", { ok: "Lectura confirmada." });
 }
 

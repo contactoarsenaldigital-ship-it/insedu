@@ -12,6 +12,7 @@ const ITEMS: Item[] = [
   { href: "/libro", label: "Libro de clases", roles: [...STAFF_TEACH, "inspector", "director", "school_admin"] },
   { href: "/refuerzos", label: "Refuerzos", roles: [...STAFF_TEACH, "student", "guardian_academic"] },
   { href: "/mensajes", label: "Comunicación", roles: "all" },
+  { href: "/encuestas", label: "Encuestas", roles: [...STAFF_TEACH, "student", "guardian_academic", "psychologist", "counselor", "safeguarding_lead", "director", "school_admin"] },
   { href: "/panel/profesor-jefe", label: "Paneles", roles: [...STAFF_TEACH, "inspector", "director", "school_admin"] },
   { href: "/panel/apoderado", label: "Resumen semanal", roles: ["guardian_academic"] },
   { href: "/salud", label: "Salud", roles: ["nurse", "psychologist", "counselor", "safeguarding_lead"] },

@@ -174,7 +174,14 @@ export function publish(a: Omit<Announcement, "id" | "at" | "reads">) {
   return ann;
 }
 
-export function markRead(annId: string, personId: string) {
+/**
+ * Un apoderado con cuenta también confirma por cada pupilo, porque el conteo de lectura
+ * de un comunicado es por estudiante (`guardian-of-…`).
+ */
+export function markRead(annId: string, person: Person) {
   const a = msgState().announcements.find((x) => x.id === annId);
-  if (a && !a.reads[personId]) a.reads[personId] = new Date().toISOString();
+  if (!a) return;
+  const now = new Date().toISOString();
+  const wardIds = person.roles.includes("guardian_academic") ? (person.wards ?? []).map((w) => `guardian-of-${w}`) : [];
+  for (const id of [person.id, ...wardIds]) a.reads[id] ??= now;
 }

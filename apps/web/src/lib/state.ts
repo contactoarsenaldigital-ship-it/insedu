@@ -4,6 +4,7 @@ import { VAULT_COLLECTIONS } from "@insedu/domain/server";
 import { pgPool, StateSync, type Collection, type SqlPool } from "@insedu/persistence";
 import { generateDemoSchool } from "./demo";
 import { initAccounts } from "./accounts";
+import { initSurveys } from "./surveys";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
@@ -41,6 +42,7 @@ function mainCollections(): Collection[] {
   const rewards = () => G.__insedu_rewards as Record<string, unknown>;
   const msgs = () => G.__insedu_msgs as Record<string, unknown>;
   const accounts = () => G.__insedu_accounts as Record<string, unknown>;
+  const surveys = () => G.__insedu_surveys as Record<string, unknown>;
   return [
     {
       name: "school.meta",
@@ -56,6 +58,7 @@ function mainCollections(): Collection[] {
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
     ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
+    ...["surveys", "responses"].map((f) => arrayOf(`encuestas.${f}`, surveys, f)),
     { name: "salvaguarda.instrucciones", key: byId, get: () => G.__insedu_instr ?? [], set: (items) => void (G.__insedu_instr = items) },
     {
       name: "salud.fichas",
@@ -72,6 +75,7 @@ function resetMain() {
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
   G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [] };
+  G.__insedu_surveys = { surveys: [], responses: [] };
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
 }
@@ -82,6 +86,7 @@ function seedMain() {
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();
   G.__insedu_accounts = initAccounts();
+  G.__insedu_surveys = initSurveys();
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
 }
