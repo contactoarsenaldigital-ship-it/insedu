@@ -11,3 +11,6 @@ coverage
 next-env.d.ts
 *.tsbuildinfo
 e2e/capturas
+
+# Material original de video (con marca de agua); la versión web está en apps/web/public/video
+/Video/

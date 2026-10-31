@@ -4,7 +4,8 @@ import { answerIssues, SOCIOMETRIC_QUESTIONS, type Answers, type Question, type 
 import { getSession } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { repo } from "@/lib/store";
-import { canAnswer, canCreate, canSeeResults, classmatesOf, CONSENT_TEXT, createSurvey, saveResponse, surveyById, type Audience } from "@/lib/surveys";
+import { canAnswer, canCreate, canSeeResults, classmatesOf, CONSENT_TEXT, createSurvey, fillDemoResponses, saveResponse, surveyById, type Audience } from "@/lib/surveys";
+import { showDemoSecrets } from "@/lib/accounts";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -95,4 +96,18 @@ async function toggleImpl(f: FormData) {
 
 export async function toggleSurvey(f: FormData) {
   return withState(() => toggleImpl(f));
+}
+// ───────────── Solo maqueta: completar con respuestas ficticias ─────────────
+
+async function fillImpl(f: FormData) {
+  const s = await getSession();
+  const survey = surveyById(str(f, "surveyId"));
+  if (!s || !survey) redirect("/encuestas");
+  if (!showDemoSecrets() || !canSeeResults(s.person, survey)) redirect(`/encuestas/${survey.id}`);
+  const n = fillDemoResponses(survey);
+  redirect(`/encuestas/${survey.id}?completada=${n}`);
+}
+
+export async function fillDemoSurvey(f: FormData) {
+  return withState(() => fillImpl(f));
 }

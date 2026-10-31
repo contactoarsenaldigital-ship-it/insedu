@@ -8,7 +8,8 @@ import { readState } from "@/lib/state";
 import { findPerson } from "@/lib/store";
 import { canAnswer, canSeeResults, classmatesOf, eligibleCount, responseOf, responsesOf, surveyById, type Survey } from "@/lib/surveys";
 import { AnswerForm } from "../AnswerForm";
-import { toggleSurvey } from "../actions";
+import { fillDemoSurvey, toggleSurvey } from "../actions";
+import { showDemoSecrets } from "@/lib/accounts";
 
 export const metadata = { title: "Encuesta" };
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ const SUGGESTION: Partial<Record<SociometricStatus, string>> = {
   sin_reciprocidad: "Elige y es elegido, pero sin vínculos mutuos. Favorecer trabajo en parejas con quienes lo eligen.",
 };
 
-export default async function SurveyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ enviada?: string; rechazos?: string }> }) {
+export default async function SurveyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ enviada?: string; rechazos?: string; completada?: string }> }) {
   await readState();
   const { id } = await params;
   const sp = await searchParams;
@@ -40,6 +41,7 @@ export default async function SurveyPage({ params, searchParams }: { params: Pro
       <p className="muted"><Link href="/encuestas">Encuestas</Link> · {survey.kind === "sociometrica" ? `Encuesta de curso · ${courseById(survey.courseId!)?.name}` : survey.anonymous ? "Anónima" : "Encuesta"}</p>
       <h1>{survey.title}</h1>
       {survey.intro && <p>{survey.intro}</p>}
+      {sp.completada && <p className="notice ok" role="status">Demostración: se agregaron {sp.completada} respuestas ficticias de quienes faltaban.</p>}
       {answering && <Answering survey={survey} meId={me.id} sent={!!sp.enviada} />}
       {results && (survey.kind === "sociometrica"
         ? <SociometricResults survey={survey} fresh={!!s.lastStrongAuthAt && Date.now() - new Date(s.lastStrongAuthAt).getTime() <= STRONG_AUTH_WINDOW_MS} showNegative={sp.rechazos === "1"} />
@@ -71,10 +73,18 @@ function Header({ survey }: { survey: Survey }) {
       <span>
         <strong>{n}</strong> respuestas{total ? ` de ${total} (${Math.round((n / total) * 100)} %)` : ""} · creada por {findPerson(survey.createdBy)?.name ?? "—"} · <span className={`tag ${survey.status === "abierta" ? "ok" : ""}`}>{survey.status}</span>
       </span>
-      <form action={toggleSurvey}>
-        <input type="hidden" name="surveyId" value={survey.id} />
-        <button className="btn secondary small">{survey.status === "abierta" ? "Cerrar encuesta" : "Reabrir encuesta"}</button>
-      </form>
+      <div className="req-actions">
+        {showDemoSecrets() && n < total && (
+          <form action={fillDemoSurvey}>
+            <input type="hidden" name="surveyId" value={survey.id} />
+            <button className="btn secondary small" title="Solo en la demostración: agrega respuestas ficticias de quienes faltan">Completar con respuestas de ejemplo ({total - n})</button>
+          </form>
+        )}
+        <form action={toggleSurvey}>
+          <input type="hidden" name="surveyId" value={survey.id} />
+          <button className="btn secondary small">{survey.status === "abierta" ? "Cerrar encuesta" : "Reabrir encuesta"}</button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { school } from "@/lib/demo";
 import { readState } from "@/lib/state";
 import { Icon, type IconName } from "@/components/Icon";
+import { HeroVideo } from "@/components/HeroVideo";
 
 type Role = { href: string; icon: IconName; eyebrow: string; title: string; text: string };
 
@@ -50,7 +51,8 @@ export default async function Home() {
   return (
     <main>
       <section className="hero">
-        <div className="wrap">
+        <div className="wrap hero-grid">
+          <div className="hero-text">
           <span className="brand xl" aria-hidden="true">INS<span>E</span>DU</span>
           <h1>Acompañar a cada estudiante, en una sola plataforma.</h1>
           <p>
@@ -68,6 +70,8 @@ export default async function Home() {
             <div><strong>3</strong><span>dimensiones: académica, salud y convivencia</span></div>
             <div><strong>1</strong><span>solo registro para el docente</span></div>
           </div>
+          </div>
+          <HeroVideo />
         </div>
       </section>
       <div className="wrap" id="recorrido">

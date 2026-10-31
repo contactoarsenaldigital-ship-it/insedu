@@ -34,10 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <header className="topbar">
-          <Link href="/" className="brand" aria-label="INSEDU, inicio">
-            INS<span>E</span>DU
-          </Link>
-          <MainNav />
+          <div className="topbar-start">
+            <MainNav />
+            <Link href="/" className="brand" aria-label="INSEDU, inicio">
+              INS<span>E</span>DU
+            </Link>
+          </div>
           <div className="topbar-end">
             <SessionPill />
             <span className="demo-pill" title="Todos los datos son ficticios">Datos ficticios</span>

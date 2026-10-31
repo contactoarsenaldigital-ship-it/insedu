@@ -2,6 +2,7 @@ import "server-only";
 import { mulberry32, SOCIOMETRIC_QUESTIONS, uuidv7, type Answers, type Question, type Role } from "@insedu/domain";
 import { school } from "./demo";
 import type { Person } from "./repository";
+import { STAFF } from "./store";
 
 /**
  * Encuestas: generales (a estudiantes, apoderados o funcionarios) y sociométricas de curso.
@@ -69,8 +70,7 @@ export const surveyById = (id: string) => surveyState().surveys.find((s) => s.id
 
 /** Cuántas personas pueden responder (para la tasa de participación). */
 export function eligibleCount(s: Survey): number {
-  const students = school().students.filter((x) => s.courseId === null || x.courseId === s.courseId).length;
-  return s.audience === "funcionarios" ? 0 : students; // un apoderado por estudiante en el colegio ficticio
+  return eligibleIds(s).length; // un apoderado por estudiante en el colegio ficticio
 }
 
 export function classmatesOf(studentId: string) {
@@ -108,11 +108,93 @@ const IDEAS = [
   "Que haya un buzón para contar problemas",
 ];
 
+const COMMENTS = [
+  "Me parece bien como está",
+  "Más actividades en grupo",
+  "Que se avise con más anticipación",
+  "Más tiempo para conversar en el curso",
+  "Me gustaría participar más",
+];
+
+/**
+ * Generador de respuestas sociométricas coherentes: el curso se divide en grupos de amistad,
+ * la mayoría elige dentro de su grupo, dos estudiantes no reciben elecciones y uno es
+ * señalado por varios en «te cuesta trabajar».
+ */
+function sociometricGenerator(course: string[], rnd: () => number) {
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]!;
+  const n = course.length;
+  const isolated = n >= 8 ? [course[Math.floor(n * 0.4)]!, course[Math.floor(n * 0.85)]!] : [];
+  const flagged = course[Math.floor(n * 0.25)];
+  const size = Math.ceil(n / 4);
+  const groups = [0, 1, 2, 3].map((k) => course.slice(k * size, (k + 1) * size));
+  const choosable = (id: string) => course.filter((x) => x !== id && !isolated.includes(x));
+  const choose = (id: string, k: number) => {
+    const own = (groups.find((g) => g.includes(id)) ?? []).filter((x) => x !== id && !isolated.includes(x));
+    const all = choosable(id);
+    const out = new Set<string>();
+    while (out.size < Math.min(k, all.length)) out.add(rnd() < 0.8 && own.length ? pick(own) : pick(all));
+    return [...out];
+  };
+  return (id: string, questions: Question[]): Answers => {
+    const answers: Answers = {};
+    for (const q of questions) {
+      if (q.type !== "companeros") continue;
+      if (q.valence === "negativa") {
+        if (flagged && id !== flagged && rnd() < 0.45) answers[q.id] = rnd() < 0.85 ? [flagged] : choose(id, 1);
+      } else if (q.valence === "amistad") {
+        if (rnd() < 0.85) answers[q.id] = choose(id, 1);
+      } else if (q.required || rnd() < 0.6) {
+        answers[q.id] = choose(id, q.max ?? 3);
+      }
+    }
+    return answers;
+  };
+}
+
+/** Respuestas generales verosímiles: cada persona tiene una tendencia y varía un poco por pregunta. */
+function generalAnswers(questions: Question[], rnd: () => number, texts = COMMENTS): Answers {
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]!;
+  const base = 2 + Math.floor(rnd() * 4);
+  const answers: Answers = {};
+  for (const q of questions) {
+    if (q.type === "escala") answers[q.id] = Math.max(1, Math.min(5, base + Math.round(rnd() * 2 - 1)));
+    else if (q.type === "opcion" && q.options?.length && (q.required || rnd() < 0.9)) answers[q.id] = pick(q.options);
+    else if (q.type === "texto" && (q.required || rnd() < 0.3)) answers[q.id] = pick(texts);
+  }
+  return answers;
+}
+
+/** Quiénes pueden responder la encuesta en el colegio ficticio. */
+export function eligibleIds(s: Survey): string[] {
+  const students = school().students.filter((x) => s.courseId === null || x.courseId === s.courseId).map((x) => x.id);
+  if (s.audience === "estudiantes") return students;
+  if (s.audience === "apoderados") return students.map((id) => `guardian-of-${id}`);
+  return STAFF.map((p) => p.id);
+}
+
+/**
+ * Solo maqueta: completa con respuestas ficticias a todas las personas que aún no responden,
+ * para que los gráficos y el sociograma se vean completos. Devuelve cuántas agregó.
+ */
+export function fillDemoResponses(s: Survey): number {
+  const st = surveyState();
+  const answered = new Set(responsesOf(s.id).map((r) => r.respondentId));
+  const missing = eligibleIds(s).filter((id) => !answered.has(id));
+  const rnd = mulberry32([...s.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7));
+  const socio = s.kind === "sociometrica" ? sociometricGenerator(eligibleIds(s), rnd) : undefined;
+  const now = Date.now();
+  missing.forEach((id, i) => {
+    const answers = socio ? socio(id, s.questions) : generalAnswers(s.questions, rnd);
+    st.responses.push({ id: uuidv7(), surveyId: s.id, respondentId: id, at: new Date(now - (missing.length - i) * 60_000).toISOString(), answers });
+  });
+  return missing.length;
+}
+
 /** Colegio ficticio: una sociométrica de 5° Básico A y una encuesta de convivencia. */
 export function initSurveys(): State {
   const s = school();
   const rnd = mulberry32(7);
-  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]!;
   const now = Date.now();
   const at = (h: number) => new Date(now - h * 3_600_000).toISOString();
   const course1 = s.students.filter((x) => x.courseId === "course-1").map((x) => x.id);
@@ -132,26 +214,11 @@ export function initSurveys(): State {
     consent: { by: "psych-1", at: at(96), text: CONSENT_TEXT },
   };
 
-  // Grupos de amistad: la mayoría elige dentro de su grupo. Dos estudiantes no reciben
-  // elecciones (nadie los elige) y uno es señalado por varios en «te cuesta trabajar».
-  const isolated = [course1[12]!, course1[25]!];
-  const flagged = course1[7]!;
-  const groups = [course1.slice(0, 7), course1.slice(7, 14), course1.slice(14, 22), course1.slice(22)];
-  const groupOf = (id: string) => groups.find((gr) => gr.includes(id))!;
-  const choosable = (id: string) => course1.filter((x) => x !== id && !isolated.includes(x));
-  const choose = (id: string, n: number) => {
-    const own = groupOf(id).filter((x) => x !== id && !isolated.includes(x));
-    const out = new Set<string>();
-    while (out.size < n) out.add(rnd() < 0.8 && own.length ? pick(own) : pick(choosable(id)));
-    return [...out];
-  };
+  const socioAnswers = sociometricGenerator(course1, rnd);
   const responses: SurveyResponse[] = [];
   for (const id of course1) {
     if (id === "student-001" || id === course1[19] || id === course1[28]) continue; // aún sin responder
-    const trabajo = choose(id, 3);
-    const answers: Answers = { trabajo, recreo: choose(id, 3), amistad: rnd() < 0.85 ? [trabajo[0]!] : [], ayuda: rnd() < 0.6 ? choose(id, 1) : [] };
-    if (id !== flagged && rnd() < 0.45) answers.cuesta = [rnd() < 0.85 ? flagged : pick(choosable(id))].filter((x) => x !== id);
-    responses.push({ id: uuidv7(), surveyId: socio.id, respondentId: id, at: at(90 - responses.length), answers });
+    responses.push({ id: uuidv7(), surveyId: socio.id, respondentId: id, at: at(90 - responses.length), answers: socioAnswers(id, socio.questions) });
   }
 
   const climate: Survey = {
@@ -169,11 +236,7 @@ export function initSurveys(): State {
   };
   for (const st of s.students) {
     if (st.id === "student-001" || rnd() > 0.62) continue;
-    const base = 2 + Math.floor(rnd() * 4);
-    const scale = () => Math.max(1, Math.min(5, base + Math.round(rnd() * 2 - 1)));
-    const answers: Answers = { seguro: scale(), respeto: scale(), adulto: scale(), lugar: pick(CLIMATE[3]!.options!) };
-    if (rnd() < 0.3) answers.idea = pick(IDEAS);
-    responses.push({ id: uuidv7(), surveyId: climate.id, respondentId: st.id, at: at(100 - (responses.length % 90)), answers });
+    responses.push({ id: uuidv7(), surveyId: climate.id, respondentId: st.id, at: at(100 - (responses.length % 90)), answers: generalAnswers(CLIMATE, rnd, IDEAS) });
   }
 
   return { surveys: [socio, climate], responses };
