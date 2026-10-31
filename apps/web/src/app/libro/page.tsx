@@ -61,7 +61,7 @@ export default async function LibroIndex() {
                   <span className="eyebrow">{mine.has(s.id) ? "Su asignatura" : "Solo lectura"}</span>
                   <h3>{s.name}</h3>
                   <span className="muted">
-                    {repo.person(s.teacherId)?.name} · {repo.evaluationsOf(s.id).length} evaluaciones · {repo.lessonsOf(s.id).length} clases registradas
+                    {repo.person(s.teacherId)?.name ?? "Docente sin asignar"} · {repo.evaluationsOf(s.id).length} evaluaciones · {repo.lessonsOf(s.id).length} clases registradas
                   </span>
                 </Link>
               ))}

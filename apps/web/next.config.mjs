@@ -13,6 +13,8 @@ const nextConfig = {
   transpilePackages: ["@insedu/domain", "@insedu/persistence"],
   serverExternalPackages: ["pg"],
   poweredByHeader: false,
+  // Carga masiva: archivos de hasta 4 MB (lib/bulk.ts); el valor por omisión es 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },

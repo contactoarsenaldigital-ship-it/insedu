@@ -65,7 +65,7 @@ export default async function SubjectBook({ params, searchParams }: { params: Pr
       <Link href="/libro" className="muted">← Libro de clases</Link>
       <h1 style={{ marginTop: 8 }}>{subject.name} · {course.name}</h1>
       <p className="muted">
-        Docente: {repo.person(subject.teacherId)?.name} · Profesor jefe: {repo.person(course.headTeacherId)?.name} · {students.length} estudiantes
+        Docente: {repo.person(subject.teacherId)?.name ?? "sin asignar"} · Profesor jefe: {repo.person(course.headTeacherId)?.name ?? "sin asignar"} · {students.length} estudiantes
         {!allowed("grade.write") && " · Solo lectura"}
       </p>
 

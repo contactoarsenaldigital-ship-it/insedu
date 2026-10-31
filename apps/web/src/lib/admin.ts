@@ -80,6 +80,7 @@ export function createAccount(
   p: Proposal,
   by: string,
   origin: string,
+  invite = true,
 ): Account {
   const roles: Role[] = p.scope.headOfCourseId && !p.roles.includes("head_teacher") ? [...p.roles, "head_teacher"] : p.roles;
   const a: Account = {
@@ -100,7 +101,7 @@ export function createAccount(
   };
   accountsState().users.push(a);
   applyScope(a);
-  sendInvitation(a, origin);
+  if (invite) sendInvitation(a, origin); // sin invitación: «Reenviar enlace» desde Usuarios
   audit(by, "Cuenta creada", `${a.name} · ${roles.map((r) => ROLE_LABEL[r]).join(", ")} · segundo factor: ${a.mfaPlan === "app" ? "app" : "correo"}`);
   return a;
 }

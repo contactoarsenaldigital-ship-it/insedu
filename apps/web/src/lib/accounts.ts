@@ -24,6 +24,8 @@ export type AccountScope = {
   headOfCourseId?: string;
   /** Apoderado: su pupilo. Estudiante: su propia ficha. */
   studentId?: string;
+  /** Apoderado con más de un pupilo (incluye `studentId`). */
+  wardIds?: string[];
 };
 
 export type Account = {
@@ -76,6 +78,29 @@ export type AuditEntry = { id: string; at: string; actor: string; action: string
 
 export type Mail = { id: string; at: string; to: string; subject: string; body: string; link?: string };
 
+/** Fila revisada de una carga masiva: qué se hará con ella y por qué. */
+export type ImportPlanRow = {
+  line: number;
+  values: Record<string, string>;
+  action: "crear" | "actualizar" | "omitir" | "error" | "direccion";
+  note: string;
+};
+
+export type PendingImport = {
+  id: string;
+  kind: "estudiantes" | "funcionarios" | "apoderados";
+  fileName: string;
+  createdAt: string;
+  createdBy: string;
+  options: { createCourses: boolean; sendInvites: boolean };
+  rows: ImportPlanRow[];
+  /** Cursos que se crearán al confirmar (solo estudiantes). */
+  newCourses: string[];
+  status: "revision" | "aplicada" | "descartada";
+  appliedAt?: string;
+  result?: string;
+};
+
 export type Settings = {
   id: "parametros";
   contactStartHour: number;
@@ -117,12 +142,14 @@ export type AccountsState = {
   settings: Settings[];
   /** Solo maqueta: el código vigente de cada desafío, para mostrarlo rotulado en pantalla. */
   demoCodes: { id: string; code: string }[];
+  /** Cargas masivas: el archivo revisado espera confirmación; luego queda como registro. */
+  imports: PendingImport[];
 };
 
 const g = globalThis as unknown as { __insedu_accounts?: AccountsState };
 
 export function initAccounts(): AccountsState {
-  return { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [{ ...DEFAULT_SETTINGS }], demoCodes: [] };
+  return { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [{ ...DEFAULT_SETTINGS }], demoCodes: [], imports: [] };
 }
 
 export const accountsState = (): AccountsState => (g.__insedu_accounts ??= initAccounts());
@@ -144,7 +171,9 @@ export function personOf(a: Account): Person {
     return { id: st.id, name: a.name, roles: ["student"], description: `Estudiante de ${courseById(st.courseId)?.name}` };
   }
   if (a.roles.includes("guardian_academic") && st) {
-    return { id: a.id, name: a.name, roles: ["guardian_academic"], description: `Apoderado/a de ${st.firstName} ${st.lastName}`, wards: [st.id] };
+    const wards = a.scope.wardIds?.length ? a.scope.wardIds : [st.id];
+    const names = wards.map((id) => school().students.find((s) => s.id === id)).filter(Boolean).map((s) => `${s!.firstName} ${s!.lastName}`);
+    return { id: a.id, name: a.name, roles: ["guardian_academic"], description: `Apoderado/a de ${names.join(", ")}`, wards };
   }
   const head = a.scope.headOfCourseId ? courseById(a.scope.headOfCourseId)?.name : undefined;
   const labels = a.roles.filter((r) => !(head && r === "head_teacher")).map((r) => ROLE_LABEL[r]);

@@ -19,4 +19,5 @@ export * from "./messaging";
 export * from "./spreadsheet";
 export * from "./riskboard";
 export * from "./surveys";
+export * from "./bulk-import";
 export * from "./auth/policy";

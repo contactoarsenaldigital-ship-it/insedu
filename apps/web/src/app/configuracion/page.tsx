@@ -9,12 +9,23 @@ import { readState } from "@/lib/state";
 import { findPerson, repo } from "@/lib/store";
 import { approveRequest, createUser, directorApprove, manageUser, rejectAccessRequest, resetSettings, saveSettings } from "./actions";
 import { ProfileFields } from "./ProfileFields";
+import { ImportTab } from "./ImportTab";
 
 export const metadata = { title: "Configuración" };
 export const dynamic = "force-dynamic";
 
 const MESSAGES: Record<string, [ok: boolean, text: string]> = {
   aprobada: [true, "Solicitud aprobada. Enviamos el enlace de activación al correo de la persona."],
+  importada: [true, "Carga realizada. El detalle de cada fila queda abajo y en la auditoría."],
+  descartada: [true, "Revisión descartada. Puede subir otro archivo."],
+  archivo: [false, "Elija un archivo para revisar."],
+  grande: [false, "El archivo supera 4 MB. Divídalo en partes (por ejemplo, por nivel) y cárguelas por separado."],
+  formato: [false, "Formato no aceptado. Use CSV, TXT o Excel (.xlsx)."],
+  xls: [false, "El formato .xls antiguo no se puede leer. En Excel use «Guardar como» → Libro de Excel (.xlsx) o CSV."],
+  ilegible: [false, "No se pudo leer el archivo. Revise que sea un CSV, TXT o Excel válido."],
+  vacio: [false, "El archivo no tiene filas de datos bajo los encabezados."],
+  filas: [false, "El archivo tiene demasiadas filas. Divídalo en partes de hasta 5.000."],
+  columnas: [false, "Faltan columnas obligatorias en el archivo."],
   direccion: [true, "El perfil es sensible: la propuesta quedó esperando la aprobación de dirección."],
   rechazada: [true, "Solicitud rechazada. Avisamos a la persona por correo."],
   creada: [true, "Cuenta creada. Enviamos el enlace de activación al correo."],
@@ -45,7 +56,7 @@ const STATUS: Record<AccessRequest["status"], string> = {
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santiago" }) : "—");
 const nameOf = (id: string) => findPerson(id)?.name ?? (id === "público" ? "Formulario público" : id);
 
-export default async function Configuration({ searchParams }: { searchParams: Promise<{ tab?: string; msg?: string; campo?: string }> }) {
+export default async function Configuration({ searchParams }: { searchParams: Promise<{ tab?: string; msg?: string; campo?: string; id?: string; tipo?: string; faltan?: string }> }) {
   await readState();
   const session = await getSession();
   if (!session) redirect("/ingresar?next=/configuracion");
@@ -60,7 +71,7 @@ export default async function Configuration({ searchParams }: { searchParams: Pr
   const tabs = [
     { id: "solicitudes", label: "Solicitudes" },
     { id: "usuarios", label: "Usuarios" },
-    ...(admin ? [{ id: "nuevo", label: "Crear usuario" }, { id: "parametros", label: "Parámetros" }] : []),
+    ...(admin ? [{ id: "nuevo", label: "Crear usuario" }, { id: "carga", label: "Carga masiva" }, { id: "parametros", label: "Parámetros" }] : []),
     { id: "auditoria", label: "Auditoría" },
     ...(showDemoSecrets() ? [{ id: "correos", label: "Correos (demo)" }] : []),
   ];
@@ -82,7 +93,7 @@ export default async function Configuration({ searchParams }: { searchParams: Pr
           <Link href={`/verificar?next=${encodeURIComponent(`/configuracion?tab=${tab}`)}`}>Verificar ahora</Link>
         </p>
       )}
-      {msg && <p className={`notice ${msg[0] ? "ok" : "warn"}`} role={msg[0] ? "status" : "alert"}>{msg[1]}</p>}
+      {msg && <p className={`notice ${msg[0] ? "ok" : "warn"}`} role={msg[0] ? "status" : "alert"}>{msg[1]}{sp.msg === "columnas" && sp.faltan ? ` Faltan: ${sp.faltan}. Descargue la plantilla para ver el formato.` : ""}</p>}
 
       <nav className="tabs" aria-label="Secciones de configuración">
         {tabs.map((t) => (
@@ -178,7 +189,7 @@ export default async function Configuration({ searchParams }: { searchParams: Pr
                   {st.users.map((a) => {
                     const locked = a.lockedUntil && new Date(a.lockedUntil).getTime() > Date.now();
                     const subj = (a.scope.subjectIds ?? []).map((id) => repo.subject(id)).filter(Boolean);
-                    const ward = a.scope.studentId ? studentById(a.scope.studentId) : undefined;
+                    const wards = (a.scope.wardIds ?? (a.scope.studentId ? [a.scope.studentId] : [])).map((id) => studentById(id)).filter((s) => !!s);
                     return (
                       <tr key={a.id}>
                         <td><strong>{a.name}</strong><br /><span className="muted">{formatRut(a.rut)} · {a.email}</span></td>
@@ -187,7 +198,7 @@ export default async function Configuration({ searchParams }: { searchParams: Pr
                           {isSensitive(a.roles) && <> <span className="tag alta">sensible</span></>}
                           {subj.length > 0 && <><br /><span className="muted">{subj.length} asignatura{subj.length > 1 ? "s" : ""}</span></>}
                           {a.scope.headOfCourseId && <><br /><span className="muted">Jefatura: {repo.course(a.scope.headOfCourseId)?.name}</span></>}
-                          {ward && <><br /><span className="muted">Estudiante: {fullName(ward)}</span></>}
+                          {wards.length > 0 && <><br /><span className="muted">{wards.length > 1 ? "Estudiantes" : "Estudiante"}: {wards.map((w) => fullName(w!)).join(", ")}</span></>}
                         </td>
                         <td>
                           <span className={`tag ${a.status === "activa" ? "ok" : a.status === "suspendida" ? "alta" : "media"}`}>{a.status}</span>
@@ -214,6 +225,8 @@ export default async function Configuration({ searchParams }: { searchParams: Pr
           )}
         </section>
       )}
+
+      {tab === "carga" && admin && <ImportTab id={sp.id} kind={sp.tipo} />}
 
       {tab === "nuevo" && admin && (
         <section className="section">

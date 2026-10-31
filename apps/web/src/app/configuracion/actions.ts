@@ -1,9 +1,10 @@
 "use server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { isSensitive, normalizeRut, requestIssues, ROLE_LABEL, STRONG_AUTH_WINDOW_MS } from "@insedu/domain";
+import { isSensitive, MAX_IMPORT_ROWS, normalizeRut, requestIssues, ROLE_LABEL, STRONG_AUTH_WINDOW_MS, type ImportKind } from "@insedu/domain";
 import { accountByEmail, accountById, accountsState, audit, DEFAULT_SETTINGS, settings, type Settings } from "@/lib/accounts";
 import { createAccount, isAdmin, isDirector, proposalFrom, proposalIssues, rejectRequest, releaseScope, resetAccess, type Proposal } from "@/lib/admin";
+import { applyImport, MAX_FILE_BYTES, planImport, savePending, tableFromFile } from "@/lib/bulk";
 import { getSession, type Session } from "@/lib/session";
 import { withState } from "@/lib/state";
 
@@ -12,7 +13,7 @@ import { withState } from "@/lib/state";
  * parámetros; dirección aprueba los perfiles sensibles. Todo lo que da o quita acceso exige
  * haber verificado la identidad hace menos de 5 minutos y queda en la auditoría.
  */
-type Tab = "solicitudes" | "usuarios" | "nuevo" | "parametros" | "auditoria" | "correos";
+type Tab = "solicitudes" | "usuarios" | "nuevo" | "carga" | "parametros" | "auditoria" | "correos";
 
 function back(tab: Tab, msg: string, extra = ""): never {
   redirect(`/configuracion?tab=${tab}&msg=${msg}${extra}`);
@@ -221,4 +222,60 @@ export async function saveSettings(form: FormData) {
 }
 export async function resetSettings() {
   return withState(() => settingsResetImpl());
+}
+
+// ───────────── Carga masiva ─────────────
+
+const KINDS: ImportKind[] = ["estudiantes", "funcionarios", "apoderados"];
+
+/** Paso 1: lee el archivo y deja un plan por fila para revisar antes de cargar. */
+async function analyzeImpl(form: FormData) {
+  const s = await guard("carga", "admin");
+  const kind = KINDS.find((k) => k === form.get("kind")) ?? "estudiantes";
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) back("carga", "archivo", `&tipo=${kind}`);
+  if (file.size > MAX_FILE_BYTES) back("carga", "grande", `&tipo=${kind}`);
+  const name = file.name.toLowerCase();
+  if (![".csv", ".txt", ".xlsx", ".xls"].some((ext) => name.endsWith(ext))) back("carga", "formato", `&tipo=${kind}`);
+  let table: string[][];
+  try {
+    table = await tableFromFile(file);
+  } catch {
+    back("carga", name.endsWith(".xls") ? "xls" : "ilegible", `&tipo=${kind}`);
+  }
+  if (table.length < 2) back("carga", "vacio", `&tipo=${kind}`);
+  if (table.length - 1 > MAX_IMPORT_ROWS) back("carga", "filas", `&tipo=${kind}`);
+  const options = { createCourses: form.get("createCourses") === "1", sendInvites: form.get("sendInvites") === "1" };
+  const plan = planImport(kind, table, options);
+  if (plan.missing.length) back("carga", "columnas", `&tipo=${kind}&faltan=${encodeURIComponent(plan.missing.join(", "))}`);
+  const pending = savePending(kind, file.name.slice(0, 120), plan, options, s.person.id);
+  redirect(`/configuracion?tab=carga&id=${pending.id}`);
+}
+
+const pendingOf = (form: FormData) => (accountsState().imports ?? []).find((p) => p.id === String(form.get("importId") ?? "") && p.status === "revision");
+
+/** Paso 2: aplica las filas válidas (se vuelven a revisar con los datos del momento). */
+async function applyImpl(form: FormData) {
+  const s = await guard("carga", "admin");
+  const p = pendingOf(form);
+  if (!p) back("carga", "vencida");
+  applyImport(p, s.person.id, await origin());
+  redirect(`/configuracion?tab=carga&id=${p.id}&msg=importada`);
+}
+
+async function discardImpl(form: FormData) {
+  await guard("carga", "admin");
+  const p = pendingOf(form);
+  if (p) p.status = "descartada";
+  back("carga", "descartada");
+}
+
+export async function analyzeImport(form: FormData) {
+  return withState(() => analyzeImpl(form));
+}
+export async function confirmImport(form: FormData) {
+  return withState(() => applyImpl(form));
+}
+export async function discardImport(form: FormData) {
+  return withState(() => discardImpl(form));
 }

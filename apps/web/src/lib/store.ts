@@ -187,3 +187,12 @@ export const repo: LibroRepository = {
     return rec;
   },
 };
+
+/** Curso nuevo (carga inicial): crea sus asignaturas en el libro, sin docente asignado aún. */
+export function addCourseSubjects(courseId: string) {
+  const st = state();
+  for (const name of SUBJECTS) {
+    const id = `${courseId}--${slug(name)}`;
+    if (!st.subjects.some((x) => x.id === id)) st.subjects.push({ id, courseId, name, teacherId: "" });
+  }
+}

@@ -496,3 +496,12 @@ fieldset.plain:disabled .question { opacity: .75; }
   .hero-grid { grid-template-columns: 1fr; gap: 28px; }
   .hero-media { justify-self: center; max-width: 320px; aspect-ratio: 4 / 5; }
 }
+
+/* ───────────── Carga masiva ───────────── */
+.import-steps { display: grid; gap: 8px; padding-left: 1.3rem; margin: 0 0 16px; }
+.import-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 12px 0; }
+.import-counts div { display: grid; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.import-counts strong { font-size: 1.4rem; }
+.import-counts span { font-size: .82rem; color: var(--ink-2); }
+.import-review { display: grid; gap: 10px; }
+.columns-help { display: grid; gap: 4px; padding-left: 1.2rem; font-size: .9rem; }

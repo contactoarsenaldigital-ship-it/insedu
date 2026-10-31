@@ -64,10 +64,18 @@ function anthropometry(studentId: string, n: number): Pick<HealthProfile, "sex" 
   return { sex, birthDate, heightCm, weightKg: Math.round(bmi * (heightCm / 100) ** 2 * 10) / 10 };
 }
 
+/** Solo el colegio ficticio («student-…») recibe datos de salud generados; los importados parten en blanco. */
+const synthetic = (studentId: string) => studentId.startsWith("student-");
+
 export function profile(studentId: string): HealthProfile {
   const m = (g.__insedu_health ??= new Map());
-  if (!m.has(studentId)) m.set(studentId, seeded(studentId));
+  if (!m.has(studentId)) {
+    m.set(studentId, synthetic(studentId)
+      ? seeded(studentId)
+      : { studentId, allergies: "Sin información", restrictions: "Sin información", emergencyContact: "Sin información", updatedAt: new Date().toISOString(), updatedBy: "carga-inicial" });
+  }
   const p = m.get(studentId)!;
+  if (!synthetic(studentId)) return p;
   // Fichas guardadas antes de registrar sexo y nacimiento: se completan con los datos del colegio ficticio.
   if (!p.sex || !p.birthDate) Object.assign(p, { ...anthropometry(studentId, Number(studentId.replace(/\D/g, "")) || 1), heightCm: p.heightCm, weightKg: p.weightKg });
   return p;

@@ -57,7 +57,7 @@ function mainCollections(): Collection[] {
     ...["subjects", "evaluations", "lessons", "corrections"].map((f) => arrayOf(`libro.${f}`, store, f)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
-    ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
+    ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes", "imports"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
     ...["surveys", "responses"].map((f) => arrayOf(`encuestas.${f}`, surveys, f)),
     { name: "salvaguarda.instrucciones", key: byId, get: () => G.__insedu_instr ?? [], set: (items) => void (G.__insedu_instr = items) },
     {
@@ -74,7 +74,7 @@ function resetMain() {
   G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
-  G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [] };
+  G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [], imports: [] };
   G.__insedu_surveys = { surveys: [], responses: [] };
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
