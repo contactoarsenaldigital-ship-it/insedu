@@ -63,6 +63,35 @@ describe("sincronización entre instancias", () => {
     expect(b.items.at(-1)!.id).toBe("nuevo"); // conserva el orden de inserción
   });
 
+  it("lo que se quita de memoria también se borra de la base", async () => {
+    const seeds = { count: 0 };
+    const a = instance(pool, seeds);
+    await a.sync.sync();
+    const i = a.items.findIndex((x) => x.id === "i3");
+    a.items.splice(i, 1, { id: "i3-nuevo", value: 3 }); // reemplazo con otra clave
+    expect(await a.sync.flush()).toBe(2); // una inserción y un borrado
+    const fresh = instance(pool, seeds);
+    await fresh.sync.sync();
+    expect(fresh.items.some((x) => x.id === "i3")).toBe(false);
+    expect(fresh.items.some((x) => x.id === "i3-nuevo")).toBe(true);
+    expect(fresh.items).toHaveLength(1500);
+  });
+
+  it("no borra lo que agregó otra instancia y esta aún no carga", async () => {
+    const seeds = { count: 0 };
+    const a = instance(pool, seeds);
+    const b = instance(pool, seeds);
+    await a.sync.sync();
+    await b.sync.sync();
+    b.items.push({ id: "de-b", value: 1 });
+    await b.sync.flush();
+    a.items[0]!.value = -1; // a escribe sin haber recargado
+    await a.sync.flush();
+    const fresh = instance(pool, seeds);
+    await fresh.sync.sync();
+    expect(fresh.items.some((x) => x.id === "de-b")).toBe(true);
+  });
+
   it("sin cambios no escribe ni sube la revisión", async () => {
     const a = instance(pool, { count: 0 });
     await a.sync.sync();

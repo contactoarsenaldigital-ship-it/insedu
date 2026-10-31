@@ -64,9 +64,37 @@ export function canAnswer(p: Person, s: Survey) {
   return has(p, STAFF_ROLES);
 }
 
-export const responseOf = (surveyId: string, personId: string) => surveyState().responses.find((r) => r.surveyId === surveyId && r.respondentId === personId);
-export const responsesOf = (surveyId: string) => surveyState().responses.filter((r) => r.surveyId === surveyId);
 export const surveyById = (id: string) => surveyState().surveys.find((s) => s.id === id);
+
+/** Una respuesta por persona y encuesta: la clave fija hace que reenviar sobrescriba en vez de duplicar. */
+const responseId = (surveyId: string, respondentId: string) => `${surveyId}:${respondentId}`;
+
+/**
+ * Respuestas válidas: la más reciente de cada persona y, en encuestas a estudiantes, solo de
+ * estudiantes del curso. Corrige datos antiguos con respuestas duplicadas.
+ */
+export function responsesOf(surveyId: string): SurveyResponse[] {
+  const s = surveyById(surveyId);
+  const eligible = s?.audience === "estudiantes" ? new Set(eligibleIds(s)) : null;
+  const latest = new Map<string, SurveyResponse>();
+  for (const r of surveyState().responses) {
+    if (r.surveyId !== surveyId || (eligible && !eligible.has(r.respondentId))) continue;
+    const prev = latest.get(r.respondentId);
+    if (!prev || r.at >= prev.at) latest.set(r.respondentId, r);
+  }
+  return [...latest.values()];
+}
+
+export const responseOf = (surveyId: string, personId: string) => responsesOf(surveyId).find((r) => r.respondentId === personId);
+
+/** Deja guardadas solo las respuestas válidas de una encuesta (borra duplicados en la base). */
+export function compactResponses(surveyId: string): number {
+  const st = surveyState();
+  const keep = new Set(responsesOf(surveyId).map((r) => r.id));
+  const before = st.responses.length;
+  st.responses = st.responses.filter((r) => r.surveyId !== surveyId || keep.has(r.id));
+  return before - st.responses.length;
+}
 
 /** Cuántas personas pueden responder (para la tasa de participación). */
 export function eligibleCount(s: Survey): number {
@@ -87,7 +115,7 @@ export function createSurvey(s: Omit<Survey, "id" | "createdAt" | "status">): Su
 export function saveResponse(surveyId: string, respondentId: string, answers: Answers) {
   const st = surveyState();
   st.responses = st.responses.filter((r) => !(r.surveyId === surveyId && r.respondentId === respondentId));
-  st.responses.push({ id: uuidv7(), surveyId, respondentId, at: new Date().toISOString(), answers });
+  st.responses.push({ id: responseId(surveyId, respondentId), surveyId, respondentId, at: new Date().toISOString(), answers });
 }
 
 // ───────────────────────── Datos de demostración ─────────────────────────
@@ -178,6 +206,7 @@ export function eligibleIds(s: Survey): string[] {
  * para que los gráficos y el sociograma se vean completos. Devuelve cuántas agregó.
  */
 export function fillDemoResponses(s: Survey): number {
+  compactResponses(s.id); // primero quita duplicados antiguos
   const st = surveyState();
   const answered = new Set(responsesOf(s.id).map((r) => r.respondentId));
   const missing = eligibleIds(s).filter((id) => !answered.has(id));
@@ -186,7 +215,7 @@ export function fillDemoResponses(s: Survey): number {
   const now = Date.now();
   missing.forEach((id, i) => {
     const answers = socio ? socio(id, s.questions) : generalAnswers(s.questions, rnd);
-    st.responses.push({ id: uuidv7(), surveyId: s.id, respondentId: id, at: new Date(now - (missing.length - i) * 60_000).toISOString(), answers });
+    st.responses.push({ id: responseId(s.id, id), surveyId: s.id, respondentId: id, at: new Date(now - (missing.length - i) * 60_000).toISOString(), answers });
   });
   return missing.length;
 }
@@ -218,7 +247,7 @@ export function initSurveys(): State {
   const responses: SurveyResponse[] = [];
   for (const id of course1) {
     if (id === "student-001" || id === course1[19] || id === course1[28]) continue; // aún sin responder
-    responses.push({ id: uuidv7(), surveyId: socio.id, respondentId: id, at: at(90 - responses.length), answers: socioAnswers(id, socio.questions) });
+    responses.push({ id: responseId(socio.id, id), surveyId: socio.id, respondentId: id, at: at(90 - responses.length), answers: socioAnswers(id, socio.questions) });
   }
 
   const climate: Survey = {
@@ -236,7 +265,7 @@ export function initSurveys(): State {
   };
   for (const st of s.students) {
     if (st.id === "student-001" || rnd() > 0.62) continue;
-    responses.push({ id: uuidv7(), surveyId: climate.id, respondentId: st.id, at: at(100 - (responses.length % 90)), answers: generalAnswers(CLIMATE, rnd, IDEAS) });
+    responses.push({ id: responseId(climate.id, st.id), surveyId: climate.id, respondentId: st.id, at: at(100 - (responses.length % 90)), answers: generalAnswers(CLIMATE, rnd, IDEAS) });
   }
 
   return { surveys: [socio, climate], responses };

@@ -4,7 +4,7 @@ import { answerIssues, SOCIOMETRIC_QUESTIONS, type Answers, type Question, type 
 import { getSession } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { repo } from "@/lib/store";
-import { canAnswer, canCreate, canSeeResults, classmatesOf, CONSENT_TEXT, createSurvey, fillDemoResponses, saveResponse, surveyById, type Audience } from "@/lib/surveys";
+import { canAnswer, canCreate, canSeeResults, classmatesOf, compactResponses, CONSENT_TEXT, createSurvey, fillDemoResponses, saveResponse, surveyById, type Audience } from "@/lib/surveys";
 import { showDemoSecrets } from "@/lib/accounts";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -90,7 +90,10 @@ async function toggleImpl(f: FormData) {
   const s = await getSession();
   const survey = surveyById(str(f, "surveyId"));
   if (!s || !survey) redirect("/encuestas");
-  if (canSeeResults(s.person, survey)) survey.status = survey.status === "abierta" ? "cerrada" : "abierta";
+  if (canSeeResults(s.person, survey)) {
+    survey.status = survey.status === "abierta" ? "cerrada" : "abierta";
+    compactResponses(survey.id);
+  }
   redirect(`/encuestas/${survey.id}`);
 }
 

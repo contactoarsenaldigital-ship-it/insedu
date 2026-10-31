@@ -134,13 +134,31 @@ export class StateSync {
 
   private async writeChanged(c: SqlClient, all: boolean): Promise<number> {
     const rows: { collection: string; id: string; json: string }[] = [];
+    const present = new Set<string>();
+    const names = new Set<string>();
     for (const col of this.opts.collections()) {
+      names.add(col.name);
       for (const item of col.get()) {
         const id = col.key(item);
         const json = JSON.stringify(item);
         const k = this.k(col.name, id);
+        present.add(k);
         if (all || this.saved.get(k) !== json) rows.push({ collection: col.name, id, json });
       }
+    }
+    // Registros que esta instancia cargó o guardó y que ya no están en memoria: se quitaron
+    // (por ejemplo, una respuesta reemplazada). Sin esto, reaparecerían en la próxima carga.
+    // Lo que agregó otra instancia no está en `saved`, así que nunca se borra por error.
+    const removed = all ? [] : [...this.saved.keys()].filter((k) => !present.has(k) && names.has(k.split("\u0000")[0]!));
+    if (removed.length) {
+      const parts = removed.map((k) => k.split("\u0000") as [string, string]);
+      await c.query(
+        `delete from demo.documents d
+         using unnest($2::text[], $3::text[]) as x(collection, id)
+         where d.tenant_id = $1 and d.collection = x.collection and d.id = x.id`,
+        [this.opts.tenantId, parts.map((p) => p[0]), parts.map((p) => p[1])],
+      );
+      for (const k of removed) this.saved.delete(k);
     }
     // Inserción por lotes con unnest para no enviar miles de sentencias.
     for (let i = 0; i < rows.length; i += 1000) {
@@ -154,7 +172,7 @@ export class StateSync {
       );
     }
     for (const r of rows) this.saved.set(this.k(r.collection, r.id), r.json);
-    return rows.length;
+    return rows.length + removed.length;
   }
 
   /** Borra el estado del establecimiento (reiniciar la demostración). */
