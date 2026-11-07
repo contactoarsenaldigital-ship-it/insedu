@@ -8,7 +8,9 @@
  * Etapa 1 (este archivo): establecimiento, cursos y asignaturas; personas y sus identificadores; matrícula y
  * número de lista; asistencia diaria y por clase con la firma del verificador; suspensiones de clases.
  * Etapa 2: horario (CourseSectionSchedule) y sesiones del calendario por día de clase.
- * Pendiente: evaluaciones, anotaciones, PIE, salidas, entregas y documentos.
+ * Etapa 3: jerarquía código de enseñanza → grado → curso, evaluaciones y notas (Assessment…, LearnerActivity) y
+ * anotaciones (Incident, IncidentPerson, K12StudentDiscipline).
+ * Pendiente: PIE, salidas, entregas, documentos y entrevistas con apoderados.
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
@@ -17,7 +19,7 @@ export type EdeAttendanceStatus = "present" | "late" | "absent" | "justified";
 
 export type EdeInput = {
   school: { rbd: string; name: string; year: string };
-  courses: { id: string; name: string; headTeacherId?: string }[];
+  courses: { id: string; name: string; level: string; headTeacherId?: string }[];
   subjects: { id: string; courseId: string; name: string; teacherId?: string }[];
   students: {
     id: string; rut: string; document: "RUN" | "IPE"; firstName: string; lastName: string; birthDate?: string; sex?: "F" | "M";
@@ -29,6 +31,11 @@ export type EdeInput = {
   /** Horario: una fila por asignatura, día y hora de la jornada. */
   schedule: { subjectId: string; weekday: 1 | 2 | 3 | 4 | 5; period: number; start: string; end: string }[];
   suspensions: { id: string; date: string; reason: string; authorization: string }[];
+  /** Evaluaciones sumativas por asignatura; el peso es el coeficiente de la nota. */
+  evaluations: { id: string; subjectId: string; title: string; date: string; weight: number; signedAt?: string; signerId?: string; signatureKey?: string }[];
+  grades: { evaluationId: string; studentId: string; value: number }[];
+  /** Anotaciones. La hora sale del registro en la bitácora, si existe. */
+  conduct: { id: string; studentId: string; date: string; time?: string; kind: "positive" | "negative" | "commendation"; severity?: string; description: string; recordedBy: string; disciplinaryAction?: string }[];
   /** Instante de la exportación, ISO. */
   exportedAt: string;
   timeZone: string;
@@ -86,11 +93,30 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   const schoolOrg = id("org:school");
   push("Organization", { OrganizationId: schoolOrg, Name: input.school.name, ShortName: input.school.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.school"), RecordStartDateTime: start, RecordEndDateTime: null });
   push("OrganizationIdentifier", { OrganizationIdentifierId: id("orgid:rbd"), OrganizationId: schoolOrg, Identifier: input.school.rbd, RefOrganizationIdentificationSystemId: ref("orgIdSystem.rbd"), RecordStartDateTime: start, RecordEndDateTime: null });
+  let unknownLevels = 0;
   for (const c of input.courses) {
     const org = id(`org:course:${c.id}`);
-    push("Organization", { OrganizationId: org, Name: c.name, ShortName: c.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.course"), RecordStartDateTime: start, RecordEndDateTime: null });
-    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:course:${c.id}`), OrganizationId: org, Parent_OrganizationId: schoolOrg, RecordStartDateTime: start, RecordEndDateTime: null });
+    const codes = gradeCodes(c.level);
+    let parent = schoolOrg;
+    if (codes) {
+      const ens = `org:ens:${codes.ensenanza}`;
+      if (!ids.has(ens)) {
+        push("Organization", { OrganizationId: id(ens), Name: codes.ensenanza, ShortName: codes.ensenanza.slice(0, 30), RefOrganizationTypeId: ref("orgType.codigoEnsenanza"), RecordStartDateTime: start, RecordEndDateTime: null });
+        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${ens}`), OrganizationId: id(ens), Parent_OrganizationId: schoolOrg, RecordStartDateTime: start, RecordEndDateTime: null });
+      }
+      const grado = `org:grado:${codes.grado}`;
+      if (!ids.has(grado)) {
+        push("Organization", { OrganizationId: id(grado), Name: codes.grado, ShortName: codes.grado.slice(0, 30), RefOrganizationTypeId: ref("orgType.grado"), RecordStartDateTime: start, RecordEndDateTime: null });
+        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${grado}`), OrganizationId: id(grado), Parent_OrganizationId: id(ens), RecordStartDateTime: start, RecordEndDateTime: null });
+      }
+      parent = id(grado);
+    } else unknownLevels++;
+    // El validador lee la letra del curso en Organization.Name; el nivel queda en el grado.
+    const letter = c.name.trim().split(/\s+/).pop() ?? c.name;
+    push("Organization", { OrganizationId: org, Name: codes ? letter : c.name, ShortName: c.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.course"), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:course:${c.id}`), OrganizationId: org, Parent_OrganizationId: parent, RecordStartDateTime: start, RecordEndDateTime: null });
   }
+  if (unknownLevels) issues.push({ severity: "error", message: `${unknownLevels} curso(s) con un nivel que no corresponde a Básica o Media regular: falta su código de enseñanza y grado` });
   for (const s of input.subjects) {
     const org = id(`org:section:${s.id}`);
     push("Organization", { OrganizationId: org, Name: s.name, ShortName: s.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.courseSection"), RecordStartDateTime: start, RecordEndDateTime: null });
@@ -136,6 +162,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (badRut) issues.push({ severity: "error", message: `${badRut} estudiante(s) con RUN inválido` });
 
   const staffById = new Map(input.staff.map((p) => [p.id, p]));
+  const studentCourse = new Map(input.students.map((s) => [s.id, s.courseId]));
   const staffPerson = (staffId: string) => {
     const pk = `person:${staffId}`;
     if (!ids.has(pk)) {
@@ -154,7 +181,6 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
 
   // ── Asistencia ──
   const statusRef: Record<EdeAttendanceStatus, EdeRefKey> = { present: "attStatus.present", late: "attStatus.tardy", absent: "attStatus.unexcusedAbsence", justified: "attStatus.excusedAbsence" };
-  const studentCourse = new Map(input.students.map((s) => [s.id, s.courseId]));
   for (const a of input.daily) {
     const courseId = studentCourse.get(a.studentId);
     if (!courseId || !ids.has(`opr:person:${a.studentId}:org:course:${courseId}`)) continue;
@@ -198,12 +224,88 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (withoutSchedule.size) issues.push({ severity: "error", message: `${withoutSchedule.size} asignatura(s) con clases firmadas no tienen horario: el validador comprueba que la firma ocurra dentro del bloque` });
   const outside = signed.filter((l) => scheduled.has(l.subjectId) && l.withinSchedule === false).length;
   if (outside) issues.push({ severity: "aviso", message: `${outside} clase(s) se firmaron fuera del horario del bloque: el validador no las aceptará` });
-  for (const l of signed) {
-    const calKey = `cal:section:${l.subjectId}`;
-    if (!ids.has(calKey)) push("OrganizationCalendar", { OrganizationCalendarId: id(calKey), OrganizationId: id(`org:section:${l.subjectId}`), CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `Clases ${input.school.year}`.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
-    const sessKey = `sess:${l.subjectId}:${l.date}`;
-    if (!ids.has(sessKey)) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(sessKey), OrganizationCalendarId: id(calKey), BeginDate: l.date, EndDate: l.date, Description: `Clases del ${l.date}`, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+  const signedLessons = signed;
+
+  // ── Evaluaciones y notas ──
+  // eslint-disable-next-line prefer-const
+  let sessionFor: (subjectId: string, date: string, description: string) => number;
+  sessionFor = (subjectId: string, date: string, description: string) => {
+    const calKey = `cal:section:${subjectId}`;
+    if (!ids.has(calKey)) push("OrganizationCalendar", { OrganizationCalendarId: id(calKey), OrganizationId: id(`org:section:${subjectId}`), CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `Clases ${input.school.year}`.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
+    const sessKey = `sess:${subjectId}:${date}`;
+    if (!ids.has(sessKey)) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(sessKey), OrganizationCalendarId: id(calKey), BeginDate: date, EndDate: date, Description: description, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+    return id(sessKey);
+  };
+  const totalWeight = new Map<string, number>();
+  for (const e of input.evaluations) totalWeight.set(e.subjectId, (totalWeight.get(e.subjectId) ?? 0) + e.weight);
+  const evaluationById = new Map(input.evaluations.map((e) => [e.id, e]));
+  let unsignedEvaluations = 0;
+  for (const e of input.evaluations) {
+    const section = `org:section:${e.subjectId}`;
+    if (!ids.has(section)) continue;
+    if (!e.signatureKey) unsignedEvaluations++;
+    const a = id(`asmt:${e.id}`), adm = id(`asmtadm:${e.id}`), ses = id(`asmtses:${e.id}`);
+    push("Assessment", { AssessmentId: a, Identifier: e.id.slice(0, 40), Title: e.title.slice(0, 60), ShortName: e.title.slice(0, 30), RefAssessmentTypeId: ref("assessmentType.sumativa"), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("AssessmentAdministration", { AssessmentAdministrationId: adm, AssessmentId: a, Name: e.title.slice(0, 30), StartDate: e.date, FinishDate: e.date, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("Assessment_AssessmentAdministration", { Assessment_AssessmentAdministrationId: id(`aaa:${e.id}`), AssessmentId: a, AssessmentAdministrationId: adm, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("AssessmentAdministration_Organization", { AssessmentAdministration_OrganizationId: id(`aao:${e.id}`), AssessmentAdministrationId: adm, OrganizationId: id(section), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("AssessmentSession", { AssessmentSessionId: ses, AssessmentAdministrationId: adm, OrganizationId: id(section), School_OrganizationId: schoolOrg, ScheduledStartDateTime: dayStart(e.date, tz), RecordStartDateTime: start, RecordEndDateTime: null });
+    sessionFor(e.subjectId, e.date, `Evaluación: ${e.title}`);
   }
+  for (const l of signedLessons) sessionFor(l.subjectId, l.date, `Clases del ${l.date}`);
+  if (unsignedEvaluations) issues.push({ severity: "error", message: `${unsignedEvaluations} evaluación(es) sin firma del docente: el validador exige el código del verificador en cada nota (LearnerActivity.digitalRandomKey)` });
+
+  let gradesOut = 0;
+  for (const g of input.grades) {
+    const e = evaluationById.get(g.evaluationId);
+    const studentOrg = e && `opr:person:${g.studentId}:org:section:${e.subjectId}`;
+    if (!e || !studentOrg || !ids.has(studentOrg)) continue;
+    const pk = `person:${g.studentId}`;
+    const reg = id(`asmtreg:${e.id}:${g.studentId}`);
+    push("AssessmentSessionStaffRole", { AssessmentSessionStaffRoleId: id(`assr:${e.id}:${g.studentId}`), AssessmentSessionId: id(`asmtses:${e.id}`), PersonId: id(pk), RefAssessmentSessionStaffRoleTypeId: ref("assessmentStaffRole.estudiante"), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("AssessmentRegistration", { AssessmentRegistrationId: reg, AssessmentAdministrationId: id(`asmtadm:${e.id}`), PersonId: id(pk), CourseSectionOrganizationId: id(`org:section:${e.subjectId}`), SchoolOrganizationId: schoolOrg, OrganizationId: id(`org:section:${e.subjectId}`), CreationDate: dayStart(e.date, tz), RecordStartDateTime: start, RecordEndDateTime: null });
+    // El validador quita las comas y mide el largo: la nota va con punto y un decimal («5.5»).
+    push("AssessmentResult", { AssessmentResultId: id(`asmtres:${e.id}:${g.studentId}`), AssessmentRegistrationId: reg, ScoreValue: (Math.round(g.value * 10) / 10).toFixed(1), RefScoreMetricTypeId: ref("scoreMetric.nota"), RecordStartDateTime: start, RecordEndDateTime: null });
+    const total = totalWeight.get(e.subjectId) || e.weight || 1;
+    push("LearnerActivity", {
+      LearnerActivityId: id(`la:${e.id}:${g.studentId}`), AssessmentRegistrationId: reg, PersonId: id(pk), CourseSectionId: id(`org:section:${e.subjectId}`), Title: e.title.slice(0, 30), CreationDate: e.date,
+      Weight: Math.round((e.weight / total) * 10000) / 100, OrganizationCalendarSessionId: id(`sess:${e.subjectId}:${e.date}`),
+      digitalRandomKey: e.signatureKey ?? null, DateDigitalRandomKey: e.signedAt ? withOffset(e.signedAt, tz) : null, personIDDigitalRandomKey: e.signerId && ids.has(`person:${e.signerId}`) ? id(`person:${e.signerId}`) : null,
+      RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+    gradesOut++;
+  }
+  if (input.grades.length > gradesOut) issues.push({ severity: "aviso", message: `${input.grades.length - gradesOut} nota(s) de estudiantes fuera de la asignatura no se exportan` });
+
+  // ── Anotaciones: un incidente por anotación, con el estudiante y quien la registró ──
+  let noTime = 0, negativeWithoutAction = 0, conductOut = 0;
+  for (const c of input.conduct) {
+    const courseId = studentCourse.get(c.studentId);
+    if (!courseId) continue;
+    const studentRole = `opr:person:${c.studentId}:org:course:${courseId}`;
+    if (!ids.has(studentRole)) continue;
+    if (!c.time) noTime++;
+    const negative = c.kind === "negative";
+    const inc = id(`inc:${c.id}`);
+    const reporter = staffById.has(c.recordedBy) ? staffPerson(c.recordedBy) : null;
+    push("Incident", {
+      IncidentId: inc, IncidentIdentifier: c.id.slice(0, 40), IncidentDate: c.date, IncidentTime: c.time ?? null, IncidentDescription: c.description,
+      RefIncidentBehaviorId: ref(negative ? "incidentBehavior.negativa" : "incidentBehavior.positiva"), RefIncidentTimeDescriptionCodeId: ref("incidentTime.horaClases"),
+      RegulationViolatedDescription: negative ? JSON.stringify({ ArtículoProtocolo: null, Severidad: c.severity ?? null, Procedimiento: null }) : null,
+      IncidentReporterId: reporter ? id(reporter) : null, RefIncidentReporterTypeId: reporter ? ref("incidentReporterType.docente") : null,
+      OrganizationId: id(`org:course:${courseId}`), OrganizationPersonRoleId: id(studentRole), RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+    push("IncidentPerson", { IncidentId: inc, PersonId: id(`person:${c.studentId}`), Identifier: c.id.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.estudiante"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.estudiante"), Date: c.time ? `${c.date}T${c.time}${dayStart(c.date, tz).slice(19)}` : dayStart(c.date, tz), RecordStartDateTime: start, RecordEndDateTime: null });
+    if (negative) {
+      if (c.disciplinaryAction) push("K12StudentDiscipline", { K12StudentDisciplineId: id(`disc:${c.id}`), IncidentId: inc, personId: id(`person:${c.studentId}`), OrganizationPersonRoleId: id(studentRole), DisciplinaryActionStartDate: c.date, RecordStartDateTime: start, RecordEndDateTime: null });
+      else negativeWithoutAction++;
+    }
+    conductOut++;
+  }
+  if (noTime) issues.push({ severity: "error", message: `${noTime} anotación(es) sin hora: el validador exige IncidentTime. Solo las registradas en INSEDU la tienen` });
+  if (negativeWithoutAction) issues.push({ severity: "error", message: `${negativeWithoutAction} anotación(es) negativa(s) sin medida disciplinaria registrada (K12StudentDiscipline)` });
+  if (conductOut) issues.push({ severity: "aviso", message: "Las anotaciones no llevan la firma del docente ni el artículo del reglamento interno que se infringió: INSEDU aún no los registra" });
+  issues.push({ severity: "aviso", message: "Las entrevistas y reuniones con apoderados aún no se registran en INSEDU, así que no se exportan" });
 
   // ── Calendario: año escolar y suspensiones ──
   const calendar = id("cal:year");
@@ -216,6 +318,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
 
   const groups: Record<string, string[]> = {
     _Organizaciones: ["Organization", "OrganizationIdentifier", "OrganizationRelationship"],
+    _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
+    _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
     _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus"],
     _ComunidadEducativa: ["OrganizationPersonRole", "K12StudentEnrollment", "RoleAttendanceEvent"],
     _Cursos: ["CourseSectionSchedule"],
@@ -224,4 +328,13 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   const json: EdeJson = Object.fromEntries(Object.entries(groups).map(([g, ts]) => [g, ts.filter((t) => tables[t]?.length).map((t) => ({ [t]: tables[t]! }))]));
   const counts = Object.fromEntries(Object.entries(tables).map(([t, r]) => [t, r.length]));
   return { json, issues, counts };
+}
+
+/** Código de enseñanza y grado de listValidationData.xlsx para Básica y Media científico-humanista regular. */
+export function gradeCodes(level: string): { ensenanza: string; grado: string } | null {
+  const m = level.match(/^\s*(\d)\s*°?\s*(B[aá]sico|Medio)/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (/medio/i.test(m[2]!)) return n >= 1 && n <= 4 ? { ensenanza: "310:Enseñanza Media H-C niños y jóvenes", grado: `310.0${n}:${n}º medio` } : null;
+  return n >= 1 && n <= 8 ? { ensenanza: "110:Enseñanza Básica", grado: `110.0${n}:${n}º Básico` } : null;
 }

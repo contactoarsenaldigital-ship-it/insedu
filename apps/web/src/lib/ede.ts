@@ -1,9 +1,9 @@
 import "server-only";
-import { buildEdeJson, provisionalRefs, subsidyList, type EdeInput, type EdeRefs } from "@insedu/domain";
+import { buildEdeJson, localTime, provisionalRefs, subsidyList, type EdeInput, type EdeRefs } from "@insedu/domain";
 import { accountById } from "./accounts";
 import { fullName, school } from "./demo";
 import { ensureEnrollments } from "./matricula";
-import { allStaff, repo, subsidyState, timetableState } from "./store";
+import { allStaff, logbook, repo, subsidyState, timetableState } from "./store";
 import { bells, signatureWarning } from "./horario";
 
 /**
@@ -30,9 +30,12 @@ export function edeInput(): EdeInput {
   });
   const lessons = repo.subjects().flatMap((x) => repo.lessonsOf(x.id));
   const day = bells().bells;
+  const tz = s.timeZone || "America/Santiago";
+  // La hora de una anotación es la de su registro en la bitácora (las del colegio ficticio no la tienen).
+  const conductTimes = new Map(logbook().filter((e) => e.entity === "anotacion" && e.action === "crear").map((e) => [e.recordId, e.at]));
   return {
     school: { rbd: s.rbd, name: s.name, year },
-    courses: s.courses.map((c) => ({ id: c.id, name: c.name, headTeacherId: c.headTeacherId || undefined })),
+    courses: s.courses.map((c) => ({ id: c.id, name: c.name, level: c.level, headTeacherId: c.headTeacherId || undefined })),
     subjects: repo.subjects().map((x) => ({ id: x.id, courseId: x.courseId, name: x.name, teacherId: x.teacherId || undefined })),
     students,
     staff: allStaff().map((p) => ({ id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : undefined })),
@@ -44,6 +47,12 @@ export function edeInput(): EdeInput {
     schedule: timetableState().slots.flatMap((x) => {
       const b = day.find((p) => p.number === x.period);
       return b ? [{ subjectId: x.subjectId, weekday: x.weekday, period: x.period, start: b.start, end: b.end }] : [];
+    }),
+    evaluations: repo.subjects().flatMap((x) => repo.evaluationsOf(x.id)).map((e) => ({ id: e.id, subjectId: e.subjectId, title: e.title, date: e.date, weight: e.weight })),
+    grades: repo.subjects().flatMap((x) => repo.gradesOf(x.id)).map((g) => ({ evaluationId: g.evaluationId, studentId: g.studentId, value: g.value })),
+    conduct: s.conduct.map((c) => {
+      const at = conductTimes.get(c.id);
+      return { id: c.id, studentId: c.studentId, date: c.date, time: at ? localTime(at, tz).concat(":00") : undefined, kind: c.kind, severity: c.severity, description: c.description, recordedBy: c.recordedBy };
     }),
     suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
     exportedAt: new Date().toISOString(),

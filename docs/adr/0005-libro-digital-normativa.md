@@ -66,7 +66,14 @@ ahora la firma guarda ese código; las clases firmadas antes no lo tienen.
 del bloque, porque el validador exige firmar durante la clase. El control de subvenciones usa el término de la segunda hora
 de la jornada configurada.
 
-**Pendiente:** evaluaciones (Assessment…, LearnerActivity), anotaciones (Incident…), PIE, salidas, entregas, documentos en
+**Tercera etapa (hecha):** jerarquía que recorren las reglas (establecimiento → código de enseñanza «110:Enseñanza Básica» →
+grado «110.05:5º Básico» → curso con su letra → asignatura); evaluaciones sumativas (Assessment, AssessmentAdministration,
+AssessmentSession, AssessmentRegistration, AssessmentResult con la nota «5.5», LearnerActivity con la ponderación en porcentaje y la
+sesión del día); anotaciones (Incident, IncidentPerson y K12StudentDiscipline). Brechas que el informe marca: las notas no se firman
+con el verificador, las anotaciones del colegio ficticio no tienen hora, las negativas no registran medida disciplinaria ni el
+artículo del reglamento, y no hay registro de entrevistas con apoderados.
+
+**Pendiente:** firma de evaluaciones y anotaciones, medidas disciplinarias, entrevistas con apoderados, PIE, salidas, entregas, documentos en
 base64 (Document), apoderados (PersonRelationship), código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula

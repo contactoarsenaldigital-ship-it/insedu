@@ -18,7 +18,11 @@ export type EdeRefKey =
   | "attEvent.daily" | "attEvent.classSection"
   | "attStatus.present" | "attStatus.excusedAbsence" | "attStatus.unexcusedAbsence" | "attStatus.tardy"
   | "personStatus.asignadoCurso" | "personStatus.matriculaDefinitiva"
-  | "calendarEvent.suspension";
+  | "calendarEvent.suspension"
+  | "orgType.codigoEnsenanza" | "orgType.grado"
+  | "assessmentType.formativa" | "assessmentType.sumativa" | "scoreMetric.nota" | "assessmentStaffRole.estudiante"
+  | "incidentBehavior.positiva" | "incidentBehavior.negativa" | "incidentPersonType.estudiante" | "incidentPersonType.docente"
+  | "incidentPersonRole.estudiante" | "incidentReporterType.docente" | "incidentTime.horaClases";
 
 export type EdeRefSource = { lookup: string; observed?: number; inferred?: number; note?: string };
 
@@ -45,6 +49,19 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "personStatus.asignadoCurso": { lookup: "RefPersonStatusType.Description = 'Estudiante asignado a un curso, se crea número de lista'" },
   "personStatus.matriculaDefinitiva": { lookup: "RefPersonStatusType.Description = 'Estudiante con matrícula definitiva'" },
   "calendarEvent.suspension": { lookup: "RefCalendarEventType (suspensión de clases): descripción por confirmar" },
+  "orgType.codigoEnsenanza": { lookup: "RefOrganizationType del código de enseñanza (p. ej. «110:Enseñanza Básica»): por confirmar", note: "fn7F1 sube del curso al grado y al código de enseñanza por OrganizationRelationship" },
+  "orgType.grado": { lookup: "RefOrganizationType del grado (p. ej. «110.05:5º Básico»): por confirmar" },
+  "assessmentType.formativa": { lookup: "RefAssessmentType (evaluación formativa)", observed: 28, note: "fn7F0: 28 o 29" },
+  "assessmentType.sumativa": { lookup: "RefAssessmentType (evaluación sumativa)", observed: 29, note: "fn7F1: notas 1,0 a 7,0 con tipo 29" },
+  "scoreMetric.nota": { lookup: "RefScoreMetricType (nota de 1,0 a 7,0)", inferred: 1, note: "fn7F1 acepta 1 o 2" },
+  "assessmentStaffRole.estudiante": { lookup: "RefAssessmentSessionStaffRoleType", observed: 6, note: "fn7F0-F2 unen AssessmentSessionStaffRole tipo 6 con el rol Estudiante" },
+  "incidentBehavior.positiva": { lookup: "RefIncidentBehavior.Description = 'Anotación positiva'" },
+  "incidentBehavior.negativa": { lookup: "RefIncidentBehavior (conducta negativa): catálogo por confirmar" },
+  "incidentPersonType.estudiante": { lookup: "RefIncidentPersonType.Description = 'Estudiante' (por confirmar)" },
+  "incidentPersonType.docente": { lookup: "RefIncidentPersonType.Description = 'Docente'", note: "fn8F2" },
+  "incidentPersonRole.estudiante": { lookup: "RefIncidentPersonRoleType del estudiante anotado: por confirmar" },
+  "incidentReporterType.docente": { lookup: "RefIncidentReporterType del docente que registra: por confirmar" },
+  "incidentTime.horaClases": { lookup: "RefIncidentTimeDescriptionCode (durante la jornada): por confirmar", note: "fn8F2 lo exige" },
 };
 
 export type EdeRefs = Partial<Record<EdeRefKey, number>>;
