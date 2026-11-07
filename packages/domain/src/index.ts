@@ -22,4 +22,5 @@ export * from "./surveys";
 export * from "./bulk-import";
 export * from "./enrollment";
 export * from "./pie";
+export * from "./exits";
 export * from "./auth/policy";

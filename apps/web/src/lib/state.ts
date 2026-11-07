@@ -6,6 +6,7 @@ import { generateDemoSchool } from "./demo";
 import { initAccounts } from "./accounts";
 import { initSurveys } from "./surveys";
 import { seedPie } from "./pie";
+import { seedExits } from "./salidas";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
@@ -55,7 +56,7 @@ function mainCollections(): Collection[] {
       set: (items) => items[0] && Object.assign(G.__insedu_school, items[0]),
     },
     ...["courses", "students", "attendance", "grades", "conduct", "health"].map((f) => arrayOf(`school.${f}`, school, f)),
-    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries"].map((f) => arrayOf(`libro.${f}`, store, f)),
+    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries", "pickups", "exits", "courseExits"].map((f) => arrayOf(`libro.${f}`, store, f)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
     ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes", "imports"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
@@ -72,7 +73,7 @@ function mainCollections(): Collection[] {
 
 function resetMain() {
   G.__insedu_school = emptySchool();
-  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [] };
+  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
   G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [], imports: [] };
@@ -85,6 +86,7 @@ function seedMain() {
   G.__insedu_school = generateDemoSchool(); // hasta el último día hábil anterior al reinicio
   G.__insedu_store = initStore(); // agrupa notas en evaluaciones (usa el colegio recién generado)
   seedPie();
+  seedExits();
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();
   G.__insedu_accounts = initAccounts();

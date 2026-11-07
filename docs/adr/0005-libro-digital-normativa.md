@@ -23,7 +23,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Registro de matrícula digital | Circular 5 y 6 | Implementado (`/matricula`), salvo adjuntar documentos escaneados y el formato EDE |
 | Registro de atención de profesionales y PIE | Circular 6.2.f | Implementado (`/pie`), salvo el formato EDE y la atención de profesionales fuera de cursos PIE |
 | Control de subvenciones y declaración en SIGE | Circular 6.2.c | **Pendiente** |
-| Registro de salidas o retiros | Circular 7 | **Pendiente** |
+| Registro de salidas o retiros | Circular 7 | Implementado (`/salidas`), salvo adjuntar poderes escaneados y el formato EDE |
 | Registro de entrega de documentación | Circular 8 | **Pendiente** |
 
 El ORD 1355 también menciona un resguardo de al menos tres años (art. 42, DTO 8144). Se adopta el
@@ -61,3 +61,10 @@ Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip`
   estudiantes, y los manuales disponibles son antiguos. Hay que confirmarla antes de agregar alertas.
 - El formato oficial de 2013 (.doc) no se reprodujo campo a campo: falta compararlo con una educadora diferencial.
 - Expediente del estudiante y Formularios Únicos quedan fuera: requieren almacenamiento de archivos.
+
+## Registro de salidas
+
+- Firma manuscrita en pantalla, guardada con el registro; la bitácora conserva su huella. La Circular admite también
+  poder simple escaneado o autorización electrónica: por ahora el poder se anota como referencia.
+- El apoderado autoriza desde su sesión. Una persona no registrada exige RUN y la comunicación del apoderado.
+- Falta confirmar con la Superintendencia si la firma en pantalla basta como «firma de la persona que retira».

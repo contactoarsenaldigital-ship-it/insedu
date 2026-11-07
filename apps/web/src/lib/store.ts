@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type ConductRecord, type EnrollmentRecord, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -105,6 +105,10 @@ type State = {
   pieStudents: PieStudent[];
   pieTeam: PieTeamMember[];
   pieEntries: PieEntry[];
+  /** Registro de salidas o retiros (ver lib/salidas). */
+  pickups: AuthorizedPickup[];
+  exits: StudentExit[];
+  courseExits: CourseExit[];
 };
 
 export function initStore(): State {
@@ -126,11 +130,20 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export function exitsState() {
+  const st = state();
+  return {
+    get pickups() { return (st.pickups ??= []); },
+    get exits() { return (st.exits ??= []); },
+    get courseExits() { return (st.courseExits ??= []); },
+  };
+}
 
 export function pieState() {
   const st = state();

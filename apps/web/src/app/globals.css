@@ -524,3 +524,9 @@ fieldset.plain:disabled .question { opacity: .75; }
 .inline-form input { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; }
 .pie-print-entry { margin-bottom: 10px; line-height: 1.5; }
 .pie-register h2 { margin-top: 24px; }
+
+/* ───────────── Salidas y retiros ───────────── */
+.exit-matches { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.signature-pad { width: 100%; max-width: 480px; height: auto; aspect-ratio: 3 / 1; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); touch-action: none; cursor: crosshair; }
+.signature-image { background: #fff; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.sign-form input[type="time"] { min-height: 36px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; }

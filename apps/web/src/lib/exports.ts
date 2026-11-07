@@ -2,6 +2,7 @@ import "server-only";
 import { can, formatRut, maskRut, weightedAverage, type Alert, type CellValue, type LessonStatus, type Sheet, type SheetColumn, type Student } from "@insedu/domain";
 import { reportFor, school, studentById } from "./demo";
 import { enrollmentSheet } from "./matricula";
+import { canRegisterExits, exitSheets } from "./salidas";
 import type { Session } from "./session";
 import { repo } from "./store";
 
@@ -68,6 +69,12 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  salidas: {
+    label: "Registro de salidas",
+    allowed: (s) => canRegisterExits(s),
+    // Esta descarga trae los retiros; el respaldo del libro incluye también cursos y autorizados.
+    build: ({ courseId }) => exitSheets(courseId)[0]!,
+  },
   matricula: {
     label: "Registro de matrícula",
     allowed: leads,
