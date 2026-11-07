@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!session) return NextResponse.json({ error: "Ingrese para descargar." }, { status: 401 });
   const { id } = await params;
   const doc = documentsState().find((d) => d.id === id);
-  if (!doc || !canReadDocument(session, doc.ownerKind)) return NextResponse.json({ error: "No se encontró el documento." }, { status: 404 });
+  if (!doc || !canReadDocument(session, doc.ownerKind, doc.ownerId)) return NextResponse.json({ error: "No se encontró el documento." }, { status: 404 });
 
   let content: Buffer | null;
   try {

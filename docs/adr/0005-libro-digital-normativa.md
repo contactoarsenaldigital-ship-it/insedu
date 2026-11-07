@@ -24,7 +24,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Registro de atención de profesionales y PIE | Circular 6.2.f | Implementado (`/pie`), salvo el formato EDE y la atención de profesionales fuera de cursos PIE |
 | Control de subvenciones y declaración en SIGE | Circular 6.2.c | Implementado (`/subvenciones`), salvo el envío al SIGE, adjuntar justificativos, formación dual y el formato EDE |
 | Registro de salidas o retiros | Circular 7 | Implementado (`/salidas`), salvo adjuntar poderes escaneados y el formato EDE |
-| Registro de entrega de documentación | Circular 8 | **Pendiente** |
+| Registro de entrega de documentación | Circular 8 | Implementado (`/entregas`), salvo la entrega electrónica según el protocolo EDE |
 
 El ORD 1355 también menciona un resguardo de al menos tres años (art. 42, DTO 8144). Se adopta el
 plazo mayor de cinco años hasta confirmarlo con la Superintendencia.
@@ -90,3 +90,13 @@ Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip`
 - Se adjuntan a la ficha de matrícula, a cada retiro y a cada corrección del control de subvenciones.
 - El respaldo en Excel lista los documentos con su huella, pero no incluye su contenido.
 - Pendiente: autorizaciones digitales validadas (por ejemplo, firmadas electrónicamente) y documentos del Libro PIE.
+
+## Entrega de información
+
+- Solicitudes con folio anual, pedidas por el apoderado o el estudiante desde su cuenta, o registradas en persona por
+  administración, dirección o inspectoría. Se muestran los días de espera: entregar tarde es infracción.
+- No existe la opción de rechazar: la documentación no se retiene por deudas (LGE art. 11). Solo se desiste a pedido de quien pidió.
+- En papel: quien recibe firma en pantalla, o se anota dónde consta la recepción firmada.
+- Electrónica: se adjuntan los documentos y el apoderado o estudiante confirma la recepción desde su cuenta. **Hay que
+  confirmar que esto basta como «expresión de su firma» y adoptar el protocolo de traspaso del EDE.**
+- Instrumentos de interés general publicados con versión; una versión nueva reemplaza a la anterior, que se conserva.

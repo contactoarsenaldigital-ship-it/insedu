@@ -10,7 +10,7 @@ const isDemo = () => process.env.INSEDU_DATA_MODE !== "real";
 /** Documentos escaneados de un registro: lista con descarga y formulario para adjuntar. */
 export async function Attachments({ kind, ownerId, hint, compact = false }: { kind: DocumentOwnerKind; ownerId: string; hint?: string; compact?: boolean }) {
   const session = await getSession();
-  if (!session || !canReadDocument(session, kind)) return null;
+  if (!session || !canReadDocument(session, kind, ownerId)) return null;
   const docs = documentsOf(kind, ownerId);
   const upload = canUploadDocument(session, kind);
   const fieldId = `doc-${kind}-${ownerId}`;

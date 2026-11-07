@@ -7,7 +7,8 @@ import { canManageEnrollment } from "./matricula";
 import { canRegisterExits } from "./salidas";
 import type { Session } from "./session";
 import { mainPool, TENANT_ID } from "./state";
-import { documentsState, exitsState, subsidyState } from "./store";
+import { canManageDeliveries, canManageInstitutional, canSeeRequest } from "./entregas";
+import { deliveriesState, documentsState, exitsState, subsidyState } from "./store";
 import { canManageSubsidy, canReadAllSubsidy } from "./subvenciones";
 
 /**
@@ -100,6 +101,11 @@ export function ownerOf(kind: DocumentOwnerKind, id: string): Owner | null {
     const e = exitsState().exits.find((x) => x.id === id);
     return e ? { courseId: e.courseId, back: `/salidas/${e.studentId}` } : null;
   }
+  if (kind === "entrega") {
+    const r = deliveriesState().requests.find((x) => x.id === id);
+    return r ? { courseId: r.courseId, back: `/entregas/${id}` } : null;
+  }
+  if (kind === "institucional") return deliveriesState().institutional.some((x) => x.id === id) ? { back: "/entregas" } : null;
   const c = subsidyState().corrections.find((x) => x.id === id);
   return c ? { courseId: c.courseId, back: `/subvenciones/${c.courseId}?mes=${c.date.slice(0, 7)}` } : null;
 }
@@ -107,11 +113,19 @@ export function ownerOf(kind: DocumentOwnerKind, id: string): Owner | null {
 export function canUploadDocument(s: Session, kind: DocumentOwnerKind) {
   if (kind === "matricula") return canManageEnrollment(s);
   if (kind === "salida") return canRegisterExits(s);
+  if (kind === "entrega") return canManageDeliveries(s);
+  if (kind === "institucional") return canManageInstitutional(s);
   return canManageSubsidy(s);
 }
 
-export function canReadDocument(s: Session, kind: DocumentOwnerKind) {
+/** Lectura por registro: el apoderado o estudiante ve lo que se le entregó; los instrumentos, toda la comunidad. */
+export function canReadDocument(s: Session, kind: DocumentOwnerKind, ownerId: string) {
   if (kind === "subvencion") return canReadAllSubsidy(s);
+  if (kind === "institucional") return true;
+  if (kind === "entrega") {
+    const r = deliveriesState().requests.find((x) => x.id === ownerId);
+    return !!r && canSeeRequest(s, r);
+  }
   return canUploadDocument(s, kind);
 }
 

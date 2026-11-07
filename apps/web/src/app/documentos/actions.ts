@@ -7,7 +7,7 @@ import { getSession } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { documentsState, logEvent } from "@/lib/store";
 
-const KINDS: DocumentOwnerKind[] = ["matricula", "salida", "subvencion"];
+const KINDS: DocumentOwnerKind[] = ["matricula", "salida", "subvencion", "entrega", "institucional"];
 
 /** Vuelve a la página del registro; los mensajes nunca llevan nombres ni RUN. */
 function back(path: string, msg: { ok?: string; error?: string }): never {

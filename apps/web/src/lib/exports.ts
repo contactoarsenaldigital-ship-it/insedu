@@ -4,6 +4,7 @@ import { reportFor, school, studentById } from "./demo";
 import { enrollmentSheet } from "./matricula";
 import { canRegisterExits, exitSheets } from "./salidas";
 import type { Session } from "./session";
+import { canManageDeliveries, deliverySheets } from "./entregas";
 import { canReadSubsidy, isMonth, monthlySheet } from "./subvenciones";
 import { repo } from "./store";
 
@@ -70,6 +71,11 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  entregas: {
+    label: "Registro de entrega de documentación",
+    allowed: (s) => canManageDeliveries(s),
+    build: ({ courseId }) => deliverySheets(courseId)[0]!,
+  },
   subvenciones: {
     label: "Control mensual de asistencia",
     allowed: (s, p) => !!p.courseId && canReadSubsidy(s, p.courseId),

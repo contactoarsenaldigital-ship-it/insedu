@@ -6,6 +6,7 @@ import { pieSheets } from "./pie";
 import { exitSheets } from "./salidas";
 import { documentsState, findPerson, logbook, repo } from "./store";
 import { subsidySheets } from "./subvenciones";
+import { deliverySheets } from "./entregas";
 
 /**
  * Respaldo del libro de clases para fiscalización: todo lo registrado, incluida la bitácora, en una
@@ -91,6 +92,7 @@ export function libroSheets(courseId?: string): Sheet[] {
     ...pieSheets(courseId),
     ...subsidySheets(courseId),
     ...exitSheets(courseId),
+    ...deliverySheets(courseId),
     {
       name: "Documentos adjuntos",
       title: `Documentos escaneados (el contenido se descarga desde INSEDU)${scope}`,
