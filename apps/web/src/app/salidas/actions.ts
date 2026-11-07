@@ -10,6 +10,7 @@ import { canRegisterExits, exitsToday, pickupsOf, wardsOf } from "@/lib/salidas"
 import { getSession, type Session } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { exitsState, logEvent } from "@/lib/store";
+import { verifySignature } from "@/lib/verifier";
 
 /** Acciones de salidas. Los mensajes viajan en la URL: nunca llevan nombres ni RUN. */
 const SEARCH_COOKIE = "insedu_salidas_q";
@@ -57,6 +58,8 @@ async function addExitImpl(f: FormData) {
     hasOpenExit: exits.some((e) => e.studentId === studentId && e.date === date && !e.returnTime),
   });
   if (issues.length) back(path, { error: issues.join(". ") });
+  const signed = await verifySignature(s, str(f, "code"));
+  if (!signed.ok) back(path, { error: `Retiro no registrado. ${signed.error}` });
 
   const record = {
     ...draft,
@@ -69,6 +72,7 @@ async function addExitImpl(f: FormData) {
     campus: enrollmentOf(studentId)?.campus,
     by: s.person.id,
     at: new Date().toISOString(),
+    staffSignature: signed.signature,
   };
   exits.push(record);
   // La bitácora guarda la huella de la firma, no la imagen.

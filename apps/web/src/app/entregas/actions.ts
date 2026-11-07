@@ -12,6 +12,7 @@ import { canManageDeliveries, canManageInstitutional, deliveriesToday, ownStuden
 import { getSession, type Session } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { deliveriesState, logEvent } from "@/lib/store";
+import { verifySignature } from "@/lib/verifier";
 
 /** Acciones de entrega de información. Los mensajes viajan en la URL: nunca llevan nombres ni RUN. */
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -65,7 +66,9 @@ async function deliverImpl(f: FormData) {
   const issues = deliveryIssues(draft, { today: deliveriesToday(), requestedOn: r.requestedOn, attachments: documentsOf("entrega", id).length, open: requestStatus(r) === "pendiente" });
   if (signature && !isSignatureImage(signature)) issues.push("La firma no es válida. Vuelva a firmar");
   if (issues.length) back(path, { error: issues.join(". ") });
-  r.delivery = { ...draft, medium: medium as "papel" | "electronico", receivedRut: str(f, "receivedRut") ? normalizeRut(str(f, "receivedRut")) : undefined, by: s.person.id, at: new Date().toISOString() };
+  const signed = await verifySignature(s, str(f, "code"));
+  if (!signed.ok) back(path, { error: `Entrega no registrada. ${signed.error}` });
+  r.delivery = { ...draft, staffSignature: signed.signature, medium: medium as "papel" | "electronico", receivedRut: str(f, "receivedRut") ? normalizeRut(str(f, "receivedRut")) : undefined, by: s.person.id, at: new Date().toISOString() };
   const { signature: _omit, ...logged } = r.delivery;
   logEvent({ actor: s.person.id, action: "modificar", entity: "solicitud_documentos", recordId: id, courseId: r.courseId, before: { estado: "pendiente" }, after: { ...logged, receivedRut: undefined, signatureHash: hash(signature) } });
   back(path, { ok: medium === "papel" ? "Entrega registrada." : "Documentos enviados. Falta que el apoderado o estudiante confirme la recepción desde su cuenta." });

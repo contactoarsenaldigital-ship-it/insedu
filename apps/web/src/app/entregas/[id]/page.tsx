@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { daysWaiting, DELIVERY_DOC_LABEL, formatRut, parseRut, REQUEST_STATUS_LABEL, REQUESTER_LABEL, requestStatus } from "@insedu/domain";
 import { Attachments } from "@/components/Attachments";
 import { SignaturePad } from "@/components/SignaturePad";
+import { SignCode } from "@/components/SignCode";
 import { courseById, fullName, studentById } from "@/lib/demo";
 import { canManageDeliveries, canSeeRequest, deliveriesToday, ownStudents, requestById } from "@/lib/entregas";
 import { getSession } from "@/lib/session";
@@ -88,7 +89,8 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
               <SignaturePad label="Firma de recepción conforme" />
               <div className="field"><label htmlFor="paperEvidence">O bien, recepción firmada en papel (dónde consta)</label><input id="paperEvidence" name="paperEvidence" /></div>
             </fieldset>
-            <button className="btn primary">Registrar entrega</button>
+            <SignCode session={session} id="delivery-code" note="Usted firma la entrega con su verificador al registrarla." />
+            <button className="btn primary">Registrar y firmar entrega</button>
           </form>
         </section>
       )}

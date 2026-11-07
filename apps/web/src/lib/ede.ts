@@ -1,9 +1,9 @@
 import "server-only";
-import { buildEdeJson, localTime, provisionalRefs, subsidyList, type EdeInput, type EdeRefs } from "@insedu/domain";
+import { buildEdeJson, DELIVERY_DOC_LABEL, localTime, provisionalRefs, requestStatus, subsidyList, weekdayOf, type EdeInput, type EdeRefs } from "@insedu/domain";
 import { accountById } from "./accounts";
 import { fullName, school } from "./demo";
 import { ensureEnrollments } from "./matricula";
-import { allStaff, logbook, meetingsState, repo, subsidyState, timetableState } from "./store";
+import { allStaff, deliveriesState, documentsState, exitsState, findPerson, logbook, meetingsState, pieState, repo, subsidyState, timetableState } from "./store";
 import { actasOf, isTeacher } from "./entrevistas";
 import { bells, signatureWarning } from "./horario";
 import { getBlob } from "./documentos";
@@ -28,7 +28,8 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
     return order.map((o, i) => {
       const st = inCourse.find((x) => x.id === o.id)!;
       const r = records.get(st.id);
-      return { id: st.id, rut: st.rut, document: r?.document ?? "RUN", firstName: st.firstName, lastName: st.lastName, birthDate: r?.birthDate, sex: r?.sex, address: r?.address, courseId: st.courseId, listNumber: i + 1, schoolNumber: r?.number, enrolledOn: r?.enrolledOn, withdrawnOn: st.withdrawnOn };
+      const g = r?.guardians[0];
+      return { guardian: g?.name ? { name: g.name } : undefined, id: st.id, rut: st.rut, document: r?.document ?? "RUN", firstName: st.firstName, lastName: st.lastName, birthDate: r?.birthDate, sex: r?.sex, address: r?.address, courseId: st.courseId, listNumber: i + 1, schoolNumber: r?.number, enrolledOn: r?.enrolledOn, withdrawnOn: st.withdrawnOn };
     });
   });
   const lessons = repo.subjects().flatMap((x) => repo.lessonsOf(x.id));
@@ -62,11 +63,59 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
       by: m.by, byTeacher: isTeacher(m.by), signedAt: m.signature.at, signatureKey: m.signature.key,
       attendees: m.attendees.map((a) => ({ studentId: a.studentId, name: a.name, rut: a.rut })), actaIds: actasOf(m.id).map((d) => d.id),
     })),
-    documents: documents ?? Object.fromEntries(meetingsState().flatMap((m) => actasOf(m.id)).map((d) => [d.id, "(sin cargar)"])),
+    pickups: exitsState().pickups.filter((p) => !p.revokedAt).map((p) => ({ studentId: p.studentId, name: p.name, rut: p.rut })),
+    exits: exitsState().exits.map((e) => ({
+      id: e.id, studentId: e.studentId, courseId: e.courseId, date: e.date, exitTime: e.exitTime, subjectId: subjectAt(e.courseId, e.date, e.exitTime), reason: e.reason,
+      pickup: { name: e.pickupName, rut: e.pickupRut, authorized: !!e.pickupAuthId }, by: e.by, signedAt: e.staffSignature?.at, signatureKey: e.staffSignature?.key,
+      docIds: [...(e.signature ? [`firma-salida:${e.id}`] : []), ...attached("salida", e.id)],
+    })),
+    deliveries: deliveriesState().requests.filter((r) => r.delivery && requestStatus(r) === "entregada").map((r) => {
+      const d = r.delivery!;
+      const confirmer = d.confirmedBy ? findPerson(d.confirmedBy) : undefined;
+      const receiver = d.medium === "electronico"
+        ? { name: confirmer?.name ?? r.requester.name, kind: confirmer?.roles.includes("student") ? "estudiante" as const : confirmer?.roles.includes("guardian_academic") ? "apoderado" as const : "otro" as const }
+        : { name: d.receivedBy ?? r.requester.name, rut: d.receivedRut, kind: r.requester.kind };
+      const roles = findPerson(d.by)?.roles ?? [];
+      return {
+        id: r.id, studentId: r.studentId, courseId: r.courseId, on: d.on, time: localTime(d.at, tz), documents: r.documents.map((k) => (k === "otro" && r.other ? r.other : DELIVERY_DOC_LABEL[k])).join("; "),
+        receiver, by: d.by, byKind: roles.some((x) => x === "teacher" || x === "head_teacher") ? "docente" as const : roles.includes("school_admin") ? "administrativo" as const : "profesional" as const,
+        signedAt: d.staffSignature?.at, signatureKey: d.staffSignature?.key, docIds: [...(d.signature ? [`firma-entrega:${r.id}`] : []), ...attached("entrega", r.id)],
+      };
+    }),
+    pie: pieState().students.map((p) => ({ studentId: p.id, since: p.since, until: p.until })),
+    documents: { ...signatureImages(), ...(documents ?? Object.fromEntries(blobDocIds().map((id) => [id, "(sin cargar)"]))) },
     suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
     exportedAt: new Date().toISOString(),
     timeZone: s.timeZone || "America/Santiago",
   };
+}
+
+/** Documentos escaneados adjuntos a un registro. */
+const attached = (kind: "salida" | "entrega", ownerId: string) => documentsState().filter((d) => d.ownerKind === kind && d.ownerId === ownerId).map((d) => d.id);
+
+/** Documentos cifrados que el archivo incluye: actas, poderes y comprobantes. */
+const blobDocIds = () => [
+  ...meetingsState().flatMap((m) => actasOf(m.id)).map((d) => d.id),
+  ...documentsState().filter((d) => d.ownerKind === "salida" || d.ownerKind === "entrega").map((d) => d.id),
+];
+
+/** Firmas en pantalla (PNG) de quien retira o recibe, en base64. */
+function signatureImages(): Record<string, string> {
+  const b64 = (dataUrl: string) => dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return Object.fromEntries([
+    ...exitsState().exits.filter((e) => e.signature).map((e) => [`firma-salida:${e.id}`, b64(e.signature!)]),
+    ...deliveriesState().requests.filter((r) => r.delivery?.signature).map((r) => [`firma-entrega:${r.id}`, b64(r.delivery!.signature!)]),
+  ]);
+}
+
+/** Asignatura que el curso tiene a esa hora según el horario, para el evento de salida de la clase. */
+function subjectAt(courseId: string, date: string, time: string): string | undefined {
+  const weekday = weekdayOf(date);
+  const day = bells().bells;
+  return timetableState().slots.find((x) => {
+    const b = day.find((p) => p.number === x.period);
+    return x.weekday === weekday && repo.subject(x.subjectId)?.courseId === courseId && !!b && b.start <= time && time < b.end;
+  })?.subjectId;
 }
 
 export function edeExport(documents?: Record<string, string | undefined>) {
@@ -78,7 +127,7 @@ export function edeExport(documents?: Record<string, string | undefined>) {
 
 /** Contenido de las actas de entrevistas y reuniones, para el archivo que se entrega. */
 export async function edeDocuments(): Promise<Record<string, string | undefined>> {
-  const ids = meetingsState().flatMap((m) => actasOf(m.id)).map((d) => d.id);
+  const ids = blobDocIds();
   const out: Record<string, string | undefined> = {};
   for (const id of ids) out[id] = (await getBlob(id).catch(() => null))?.toString("base64");
   return out;

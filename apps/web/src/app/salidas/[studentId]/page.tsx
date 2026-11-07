@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatRut, parseRut } from "@insedu/domain";
 import { SignaturePad } from "@/components/SignaturePad";
+import { SignCode } from "@/components/SignCode";
 import { Attachments } from "@/components/Attachments";
 import { courseById, fullName, studentById } from "@/lib/demo";
 import { canRegisterExits, canSeeStudentExits, exitsOf, exitsToday, nowTime, pickupsOf, wardsOf } from "@/lib/salidas";
@@ -112,7 +113,8 @@ export default async function StudentExits({ params, searchParams }: { params: P
             <SignaturePad label="Firma de quien retira" />
             <div className="field"><label htmlFor="paperEvidence">O bien, poder simple en papel (dónde consta)</label><input id="paperEvidence" name="paperEvidence" /></div>
             <div className="field"><label htmlFor="observations">Observaciones (opcional)</label><input id="observations" name="observations" maxLength={500} /></div>
-            <button className="btn primary">Registrar retiro</button>
+            <SignCode session={session} id="exit-code" note="Usted firma el retiro con su verificador al registrarlo." />
+            <button className="btn primary">Registrar y firmar retiro</button>
           </form>
         </section>
       )}

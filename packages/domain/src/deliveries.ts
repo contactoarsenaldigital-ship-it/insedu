@@ -9,6 +9,7 @@
  *   disposición de toda la comunidad.
  */
 
+import type { LessonSignature } from "./gradebook";
 export type DeliveryDocKind = "promocion" | "personalidad" | "evaluacion" | "carpeta_pie" | "logros" | "otro";
 
 export const DELIVERY_DOC_LABEL: Record<DeliveryDocKind, string> = {
@@ -39,6 +40,8 @@ export type Delivery = {
   confirmedBy?: string;
   by: string;
   at: string;
+  /** Firma con verificador de quien entrega (el EDE la exige). */
+  staffSignature?: LessonSignature;
 };
 
 export type DocumentRequest = {

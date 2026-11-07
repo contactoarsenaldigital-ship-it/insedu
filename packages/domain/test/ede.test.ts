@@ -10,7 +10,16 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
   school: { rbd: "12345", name: "Colegio Ficticio", year: "2026" },
   courses: [{ id: "c1", name: "5° Básico A", level: "5° Básico", headTeacherId: "t1" }],
   subjects: [{ id: "s1", courseId: "c1", name: "Matemática", teacherId: "t1" }],
-  students: [{ id: "a", rut: "11111111-1", document: "RUN", firstName: "Ana María", lastName: "Pérez Soto", birthDate: "2015-04-02", sex: "F", address: "Calle 1", courseId: "c1", listNumber: 1, enrolledOn: "2026-03-02" }],
+  students: [{ id: "a", rut: "11111111-1", document: "RUN", firstName: "Ana María", lastName: "Pérez Soto", birthDate: "2015-04-02", sex: "F", address: "Calle 1", courseId: "c1", listNumber: 1, enrolledOn: "2026-03-02", guardian: { name: "María José Soto Rivas", rut: "12345678-5" } }, { id: "b", rut: "33333333-3", document: "RUN", firstName: "Tomás", lastName: "Rojas Vera", courseId: "c1", listNumber: 2, enrolledOn: "2026-03-02", withdrawnOn: "2026-09-30" }],
+  pickups: [{ studentId: "a", name: "Pedro Soto Rivas", rut: "11222333-9" }],
+  exits: [
+    { id: "x1", studentId: "a", courseId: "c1", date: "2026-10-05", exitTime: "09:00", subjectId: "s1", reason: "Control médico", pickup: { name: "Pedro Soto Rivas", rut: "11222333-9", authorized: true }, by: "t1", signedAt: "2026-10-05T12:01:00Z", signatureKey: "777888", docIds: ["sig-x1"] },
+    { id: "x2", studentId: "a", courseId: "c1", date: "2026-10-06", exitTime: "17:00", reason: "Trámite familiar", pickup: { name: "Rosa Pérez Lagos", authorized: false }, by: "t1", docIds: [] },
+  ],
+  deliveries: [
+    { id: "r1", studentId: "b", courseId: "c1", on: "2026-10-01", time: "10:00", documents: "Certificado de notas", receiver: { name: "Laura Vera Díaz", kind: "apoderado" }, by: "t1", byKind: "administrativo", signedAt: "2026-10-01T13:00:00Z", signatureKey: "999000", docIds: ["sig-r1"] },
+  ],
+  pie: [{ studentId: "a", since: "2026-03-10" }],
   staff: [{ id: "t1", rut: "22222222-2", name: "Carolina Fuentes" }],
   daily: [{ studentId: "a", date: "2026-10-05", status: "late" }],
   lessons: [{ id: "l1", subjectId: "s1", date: "2026-10-05", attendance: { a: "present" }, signedAt: "2026-10-05T12:00:00Z", signerId: "t1", signatureKey: "123456" }],
@@ -23,7 +32,7 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
     { id: "m1", kind: "entrevista", courseId: "c1", studentId: "a", date: "2026-10-15", time: "16:30", description: "Rendimiento en Matemática. Acuerdos: reforzamiento", by: "t1", byTeacher: true, signedAt: "2026-10-15T20:00:00Z", signatureKey: "333444", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: ["d1"] },
     { id: "m2", kind: "reunion", courseId: "c1", date: "2026-10-20", time: "19:00", description: "Reunión de octubre", by: "t1", byTeacher: true, signedAt: "2026-10-20T23:00:00Z", signatureKey: "555666", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: [] },
   ],
-  documents: { d1: "JVBERi0xLjQK" },
+  documents: { d1: "JVBERi0xLjQK", "sig-x1": "iVBORw0KGgo=", "sig-r1": "iVBORw0KGgoB" },
   exportedAt: "2026-11-07T15:00:00Z",
   timeZone: "America/Santiago",
   ...extra,
@@ -43,7 +52,7 @@ describe("EDE", () => {
 
   it("agrupa las tablas como espera el contenedor oficial", () => {
     const { json, counts } = buildEdeJson(input(), allRefs);
-    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
+    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_Intervenciones", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
     expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45", ClassEndingTime: "09:30", ClassPeriod: "Hora 02" });
     expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((r) => r.BeginDate === "2026-10-05")).toMatchObject({ EndDate: "2026-10-05", AttendanceTermIndicator: 1, Description: "Clases del 2026-10-05" });
     expect(counts.Organization).toBe(5);
@@ -112,7 +121,7 @@ describe("EDE", () => {
   it("exporta anotaciones como incidentes e informa lo que falta", () => {
     const { json, issues } = buildEdeJson(input(), allRefs);
     const inc = table(json, "_Incidentes", "Incident");
-    expect(inc).toHaveLength(5);
+    expect(inc.filter((r) => r.RefIncidentBehaviorId === allRefs["incidentBehavior.negativa"] || r.RefIncidentBehaviorId === allRefs["incidentBehavior.positiva"])).toHaveLength(3);
     expect(inc[0]).toMatchObject({ IncidentTime: "10:15:00", RefIncidentBehaviorId: allRefs["incidentBehavior.negativa"] });
     expect(JSON.parse(String(inc[0]!.RegulationViolatedDescription))).toMatchObject({ ArtículoProtocolo: "Art. 42", Severidad: "grave", Procedimiento: "suspension" });
     expect(inc[2]!.RegulationViolatedDescription).toBeNull();
@@ -135,14 +144,56 @@ describe("EDE", () => {
     const guardian = people.find((p) => p.RefIncidentPersonTypeId === allRefs["incidentPersonType.apoderado"])!;
     expect(guardian).toMatchObject({ RefIncidentPersonRoleTypeId: allRefs["incidentPersonRole.entrevistado"], Date: "2026-10-15T16:30:00-03:00" });
     const doc = table(json, "_Comunes", "Document");
-    expect(doc).toEqual([{ documentId: guardian.fileScanBase64, fileScanBase64: "JVBERi0xLjQK" }]);
+    expect(doc.find((d) => d.documentId === guardian.fileScanBase64)).toEqual({ documentId: guardian.fileScanBase64, fileScanBase64: "JVBERi0xLjQK" });
     expect(people.find((p) => p.RefIncidentPersonRoleTypeId === allRefs["incidentPersonRole.entrevistador"])).toMatchObject({ digitalRandomKey: "333444" });
     // Una sola persona para el apoderado aunque asista a la entrevista y a la reunión.
     const persons = table(json, "_Personas", "Person").filter((p) => p.PersonId === guardian.PersonId);
     expect(persons).toEqual([expect.objectContaining({ FirstName: "María", MiddleName: "José", LastName: "Soto", SecondLastName: "Rivas" })]);
-    expect(table(json, "_Personas", "PersonRelationship")).toEqual([expect.objectContaining({ PersonId: guardian.PersonId, RefPersonRelationshipId: allRefs["relationship.apoderado"] })]);
+    // El apoderado de la matrícula y el de la entrevista son la misma persona (mismo RUN).
+    expect(table(json, "_Personas", "PersonRelationship").filter((r) => r.PersonId === guardian.PersonId)).toEqual([expect.objectContaining({ RefPersonRelationshipId: allRefs["relationship.apoderado"], RetirarEstudianteIndicador: 1 })]);
     expect(table(json, "_ComunidadEducativa", "OrganizationPersonRole").filter((r) => r.PersonId === guardian.PersonId)).toEqual([expect.objectContaining({ RoleId: allRefs["role.apoderado"] })]);
     expect(issues.map((i) => i.message).join(" | ")).toContain("1 entrevista(s) o reunión(es) sin el acta firmada");
+  });
+
+  it("exporta los retiros con los tres eventos que exige el validador", () => {
+    const { json, issues } = buildEdeJson(input(), allRefs);
+    const events = table(json, "_ComunidadEducativa", "RoleAttendanceEvent").filter((e) => e.RefAttendanceStatusId === allRefs["attStatus.earlyDeparture"]);
+    const first = events.filter((e) => e.Date === "2026-10-05T09:00:00-03:00");
+    expect(first.map((e) => e.RefAttendanceEventTypeId)).toEqual([allRefs["attEvent.classSection"], allRefs["attEvent.establecimiento"], allRefs["attEvent.establecimiento"]]);
+    expect(first[0]).toMatchObject({ digitalRandomKey: "777888", observaciones: "Control médico" });
+    const pickup = first[2]!;
+    expect(pickup).toMatchObject({ firmaRatificador: "777888", fechaRatificador: "2026-10-05T09:01:00-03:00" });
+    expect(pickup.oprIdRatificador).not.toBeNull();
+    expect(table(json, "_Comunes", "Document").find((d) => d.documentId === pickup.fileScanBase64)).toMatchObject({ fileScanBase64: "iVBORw0KGgo=" });
+    const oprs = table(json, "_ComunidadEducativa", "OrganizationPersonRole");
+    expect(oprs.find((o) => o.OrganizationPersonRoleId === pickup.OrganizationPersonRoleId)).toMatchObject({ RoleId: allRefs["role.retira"] });
+    // Todos los estudiantes tienen a alguien autorizado a retirarlos, y el estudiante está en el establecimiento.
+    const rel = table(json, "_Personas", "PersonRelationship");
+    expect(rel.filter((r) => r.RetirarEstudianteIndicador === 1 && r.RecordEndDateTime === null)).toHaveLength(2);
+    expect(rel.find((r) => r.RecordEndDateTime === "2026-10-06T23:59:59-03:00")).toBeTruthy();
+    expect(table(json, "_ComunidadEducativa", "RoleStatus")[0]).toMatchObject({ RefRoleStatusId: allRefs["roleStatus.enrolled"], StatusStartDate: "2026-03-02" });
+    const text = issues.map((i) => i.message).join(" | ");
+    expect(text).toContain("1 retiro(s) sin firma con verificador");
+    expect(text).toContain("1 retiro(s) fuera del horario");
+    expect(text).toContain("1 retiro(s) sin la firma en pantalla");
+    expect(text).toContain("1 retiro(s) por personas fuera del registro");
+    expect(text).toContain("1 estudiante(s) sin apoderado");
+  });
+
+  it("exporta la entrega de documentos al estudiante retirado y la nómina PIE", () => {
+    const { json, issues } = buildEdeJson(input(), allRefs);
+    const inc = table(json, "_Incidentes", "Incident").find((r) => r.IncidentIdentifier === "r1")!;
+    expect(inc).toMatchObject({ RefIncidentBehaviorId: allRefs["incidentBehavior.entregaRetiro"], IncidentTime: "10:00:00", RegulationViolatedDescription: null });
+    const people = table(json, "_Incidentes", "IncidentPerson").filter((p) => p.IncidentId === inc.IncidentId);
+    expect(people.find((p) => p.Identifier === "r1:entrega")).toMatchObject({ digitalRandomKey: "999000", RefIncidentPersonTypeId: allRefs["incidentPersonType.administrativo"] });
+    const receiver = people.find((p) => p.Identifier === "r1:recibe")!;
+    expect(receiver).toMatchObject({ RefIncidentPersonTypeId: allRefs["incidentPersonType.apoderado"] });
+    expect(table(json, "_Comunes", "Document").find((d) => d.documentId === receiver.fileScanBase64)).toMatchObject({ fileScanBase64: "iVBORw0KGgoB" });
+    expect(table(json, "_Personas", "PersonStatus").find((s) => s.RefPersonStatusTypeId === allRefs["personStatus.retirado"])).toMatchObject({ StatusStartDate: "2026-09-30" });
+    expect(table(json, "_Intervenciones", "PersonProgramParticipation")).toEqual([expect.objectContaining({ ParticipationStatus: "Activo", RefParticipationTypeId: allRefs["participation.pie"] })]);
+    const text = issues.map((i) => i.message).join(" | ");
+    expect(text).not.toContain("retirado(s) sin entrega");
+    expect(text).toContain("no revisa el PIE");
   });
 
   it("traduce el nivel al código de enseñanza y grado oficiales", () => {

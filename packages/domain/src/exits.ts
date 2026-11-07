@@ -22,6 +22,8 @@ export type AuthorizedPickup = {
   revokedBy?: string;
 };
 
+import type { LessonSignature } from "./gradebook";
+
 export type StudentExit = {
   id: string;
   folio: number;
@@ -43,6 +45,8 @@ export type StudentExit = {
   campus?: string;
   by: string;
   at: string;
+  /** Firma con verificador de quien registra el retiro (el EDE la exige). */
+  staffSignature?: LessonSignature;
 };
 
 export type CourseExit = {

@@ -27,6 +27,9 @@ export type EdeRefKey =
   | "incidentBehavior.entrevista" | "incidentBehavior.reunion"
   | "incidentPersonRole.entrevistado" | "incidentPersonRole.entrevistador" | "incidentPersonRole.asisteReunion" | "incidentPersonRole.dirigeReunion"
   | "relationship.apoderado" | "role.apoderado"
+  | "attEvent.establecimiento" | "attStatus.earlyDeparture" | "roleStatus.enrolled" | "role.retira" | "role.funcionario"
+  | "relationship.autorizadoRetiro" | "personStatus.retirado" | "incidentBehavior.entregaRetiro" | "incidentBehavior.entregaContinuidad"
+  | "incidentPersonType.administrativo" | "incidentPersonType.otro" | "incidentPersonRole.entrega" | "incidentPersonRole.recibe" | "participation.pie"
   | `disciplinaryAction.${DisciplinaryMeasureType}`;
 
 import { MEASURE_LABEL, type DisciplinaryMeasureType } from "../discipline";
@@ -70,21 +73,35 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "incidentBehavior.positiva": { lookup: "RefIncidentBehavior.Description = 'Anotación positiva'" },
   "incidentBehavior.negativa": { lookup: "RefIncidentBehavior (conducta negativa): catálogo por confirmar" },
   "incidentPersonType.estudiante": { lookup: "RefIncidentPersonType.Description = 'Estudiante' (por confirmar)" },
-  "incidentPersonType.docente": { lookup: "RefIncidentPersonType.Description = 'Docente'", note: "fn8F2" },
+  "incidentPersonType.docente": { lookup: "RefIncidentPersonType.Description = 'Docente'", observed: 44, note: "fn8F2; fn1FA usa 44 con el comentario «docente»" },
   "incidentPersonRole.estudiante": { lookup: "RefIncidentPersonRoleType del estudiante anotado: por confirmar" },
   "incidentReporterType.docente": { lookup: "RefIncidentReporterType del docente que registra: por confirmar" },
   "incidentTime.horaClases": { lookup: "RefIncidentTimeDescriptionCode (durante la jornada): por confirmar", note: "fn8F2 lo exige" },
   "incidentPersonRole.registra": { lookup: "RefIncidentPersonRoleType de quien registra la anotación: por confirmar", note: "fn8F2 exige el rol en cada IncidentPerson" },
   "incidentPersonType.profesional": { lookup: "RefIncidentPersonType.Description = 'Profesional de la educación'", note: "fn8F2" },
-  "incidentPersonType.apoderado": { lookup: "RefIncidentPersonType.Description = 'Apoderado'", note: "fn8F2, fn8F3" },
+  "incidentPersonType.apoderado": { lookup: "RefIncidentPersonType.Description = 'Apoderado'", observed: 43, note: "fn8F2, fn8F3; fn1FA usa 43 con el comentario «apoderado»" },
   "incidentBehavior.entrevista": { lookup: "RefIncidentBehavior.Description = 'Entrevista'", note: "fn8F0, fn8F2, fn8F3" },
   "incidentBehavior.reunion": { lookup: "RefIncidentBehavior.Description = 'Reunión con apoderados'", note: "fn8F0, fn8F2, fn8F3" },
   "incidentPersonRole.entrevistado": { lookup: "RefIncidentPersonRoleType.Description = 'Entrevistado'", note: "fn8F2" },
   "incidentPersonRole.entrevistador": { lookup: "RefIncidentPersonRoleType.Description = 'Entrevistador'", note: "fn8F2" },
   "incidentPersonRole.asisteReunion": { lookup: "RefIncidentPersonRoleType.Description = 'Asiste a reunión de apoderados'", note: "fn8F2" },
   "incidentPersonRole.dirigeReunion": { lookup: "RefIncidentPersonRoleType.Description = 'Dirige reunión de apoderados'", note: "fn8F2" },
-  "relationship.apoderado": { lookup: "RefPersonRelationship.Code = 'Apoderado(a)/Tutor(a)'", note: "fn8F3" },
-  "role.apoderado": { lookup: "Role.Name = 'Padre, madre o apoderado'", note: "fn8F3" },
+  "relationship.apoderado": { lookup: "RefPersonRelationship.Code = 'Apoderado(a)/Tutor(a)'", inferred: 31, note: "fn8F3, fn1FB; fn1FA filtra la relación 31" },
+  "role.apoderado": { lookup: "Role.Name = 'Padre, madre o apoderado'", inferred: 15, note: "fn8F3, fn0FB; fn1FA filtra el rol 15" },
+  "attEvent.establecimiento": { lookup: "RefAttendanceEventType.Code = 'AsistenciaEstablecimiento'", note: "fn0FB: salida del establecimiento" },
+  "attStatus.earlyDeparture": { lookup: "RefAttendanceStatus.Code = 'EarlyDeparture'", note: "fn0FB" },
+  "roleStatus.enrolled": { lookup: "RefRoleStatus.Code = 'Enrolled'", note: "fn0FB exige el estado vigente del estudiante en la asignatura" },
+  "role.retira": { lookup: "Role.Name = 'Persona que retira al estudiante'", note: "fn0FB" },
+  "role.funcionario": { lookup: "Role del funcionario que ratifica un retiro (inspectoría, portería): por confirmar", note: "fn0FB exige oprIdRatificador" },
+  "relationship.autorizadoRetiro": { lookup: "RefPersonRelationship de la persona autorizada a retirar: por confirmar", note: "fn0FA y fn0FB miran RetirarEstudianteIndicador" },
+  "personStatus.retirado": { lookup: "RefPersonStatusType.Description = 'Estudiante retirado definitivamente'", observed: 30, note: "fn1FA, fn1FC" },
+  "incidentBehavior.entregaRetiro": { lookup: "RefIncidentBehavior.Description = 'Entrega de documentos retiro de un estudiante'", observed: 33, note: "fn1FA" },
+  "incidentBehavior.entregaContinuidad": { lookup: "RefIncidentBehavior.Description = 'Entrega de información para continuidad de estudios'", note: "fn1FC" },
+  "incidentPersonType.administrativo": { lookup: "RefIncidentPersonType.Description = 'Personal Administrativo'", note: "fn8F2" },
+  "incidentPersonType.otro": { lookup: "RefIncidentPersonType.Description = 'Adulto responsable o conocido del estudiante'", note: "fn8F2" },
+  "incidentPersonRole.entrega": { lookup: "RefIncidentPersonRoleType de quien entrega documentos: por confirmar" },
+  "incidentPersonRole.recibe": { lookup: "RefIncidentPersonRoleType de quien recibe documentos: por confirmar" },
+  "participation.pie": { lookup: "RefParticipationType del Programa de Integración Escolar: por confirmar", note: "Ninguna regla del validador revisa el PIE" },
 };
 
 export type EdeRefs = Partial<Record<EdeRefKey, number>>;

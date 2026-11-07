@@ -11,7 +11,9 @@
  * Etapa 3: jerarquía código de enseñanza → grado → curso, evaluaciones y notas (Assessment…, LearnerActivity) y
  * anotaciones (Incident, IncidentPerson, K12StudentDiscipline).
  * Etapa 4: firma de las anotaciones, entrevistas y reuniones con apoderados (con el acta escaneada en Document).
- * Pendiente: PIE, salidas y entregas.
+ * Etapa 5: apoderados y autorizados a retirar, salidas (tres eventos EarlyDeparture), entrega de documentación y
+ *   nómina PIE (sin diagnósticos; el validador no revisa el PIE).
+ * Pendiente: documentos de interés general entregados a cada apoderado, títulos de los docentes.
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
@@ -26,7 +28,24 @@ export type EdeInput = {
   students: {
     id: string; rut: string; document: "RUN" | "IPE"; firstName: string; lastName: string; birthDate?: string; sex?: "F" | "M";
     address?: string; courseId: string; listNumber: number; schoolNumber?: number; enrolledOn?: string; withdrawnOn?: string;
+    /** Apoderado titular de la matrícula. */
+    guardian?: { name: string; rut?: string };
   }[];
+  /** Personas autorizadas a retirar, vigentes. */
+  pickups: { studentId: string; name: string; rut?: string }[];
+  /** Retiros de estudiantes. subjectId: la asignatura en curso a esa hora, según el horario. docIds: firma o poder de quien retira. */
+  exits: {
+    id: string; studentId: string; courseId: string; date: string; exitTime: string; subjectId?: string; reason: string;
+    pickup: { name: string; rut?: string; authorized: boolean }; by: string; signedAt?: string; signatureKey?: string; docIds: string[];
+  }[];
+  /** Entregas de documentación ya recibidas. docIds: firma de recepción o comprobante escaneado. */
+  deliveries: {
+    id: string; studentId: string; courseId: string; on: string; time?: string; documents: string;
+    receiver: { name: string; rut?: string; kind: "apoderado" | "estudiante" | "otro" };
+    by: string; byKind: "docente" | "profesional" | "administrativo"; signedAt?: string; signatureKey?: string; docIds: string[];
+  }[];
+  /** Nómina del Programa de Integración Escolar, sin diagnósticos. */
+  pie: { studentId: string; since: string; until?: string }[];
   staff: { id: string; rut?: string; name: string }[];
   daily: { studentId: string; date: string; status: EdeAttendanceStatus }[];
   lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
@@ -164,9 +183,15 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     if (st.address) push("PersonAddress", { PersonAddressId: id(`addr:${st.id}`), PersonId: id(pk), StreetNumberAndName: st.address.slice(0, 40), RecordStartDateTime: start, RecordEndDateTime: null });
     push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:asignado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.asignadoCurso"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
     push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:definitiva`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.matriculaDefinitiva"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
+    if (st.withdrawnOn) push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:retirado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.retirado"), StatusValue: 1, StatusStartDate: st.withdrawnOn, StatusEndDate: null, RecordStartDateTime: start, RecordEndDateTime: null });
     const courseRole = opr(pk, `org:course:${st.courseId}`, "role.estudiante", st.enrolledOn, st.withdrawnOn);
     push("K12StudentEnrollment", { OrganizationPersonRoleId: courseRole, StudentListNumber: st.listNumber, active: st.withdrawnOn ? 0 : 1, RecordStartDateTime: start, RecordEndDateTime: null });
-    for (const sec of sectionsOf.get(st.courseId) ?? []) opr(pk, `org:section:${sec}`, "role.estudiante", st.enrolledOn, st.withdrawnOn);
+    // fn0FB: el estudiante también está en el establecimiento, y su rol en cada asignatura tiene estado «Enrolled».
+    opr(pk, "org:school", "role.estudiante", st.enrolledOn, st.withdrawnOn);
+    for (const sec of sectionsOf.get(st.courseId) ?? []) {
+      const sectionRole = opr(pk, `org:section:${sec}`, "role.estudiante", st.enrolledOn, st.withdrawnOn);
+      push("RoleStatus", { RoleStatusId: id(`rstatus:${st.id}:${sec}`), OrganizationPersonRoleId: sectionRole, RefRoleStatusId: ref("roleStatus.enrolled"), StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
+    }
   }
   if (noBirth || noSex || noAddress) issues.push({ severity: "aviso", message: `Fichas incompletas: ${noBirth} sin fecha de nacimiento, ${noSex} sin sexo, ${noAddress} sin domicilio` });
   if (badRut) issues.push({ severity: "error", message: `${badRut} estudiante(s) con RUN inválido` });
@@ -188,6 +213,42 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   for (const s of input.subjects) if (s.teacherId) opr(staffPerson(s.teacherId), `org:section:${s.id}`, "role.docente");
   for (const p of input.staff) if (ids.has(`person:${p.id}`) && !(p.rut && parseRut(p.rut))) staffWithoutRut++;
   if (staffWithoutRut) issues.push({ severity: "error", message: `${staffWithoutRut} docente(s) sin RUN registrado: el validador los identifica por RUN` });
+
+  // ── Apoderados y personas autorizadas a retirar ──
+  // Un mismo adulto (por RUN o, sin RUN, por nombre) es una sola persona por estudiante. fn0FA exige que cada estudiante
+  // tenga al menos una persona con RetirarEstudianteIndicador = 1; fn8F3 y fn1F* buscan al apoderado por su relación y rol.
+  type AdultKind = "apoderado" | "retira" | "otro";
+  const adultPerson = (a: { studentId: string; name: string; rut?: string }, courseId: string, kind: AdultKind, opts: { retira?: boolean; until?: string } = {}) => {
+    const parsed = a.rut ? parseRut(a.rut) : null;
+    const pk = `person:adult:${a.studentId}:${parsed ? parsed.body : a.name.trim().toLowerCase()}`;
+    if (!ids.has(pk)) {
+      // «Nombre [segundo nombre] Apellido1 Apellido2»: los dos últimos son los apellidos si hay más de dos palabras.
+      const words = a.name.trim().split(/\s+/);
+      const cut = words.length > 2 ? words.length - 2 : 1;
+      push("Person", { PersonId: id(pk), ...splitNames(words.slice(0, cut).join(" "), words.slice(cut).join(" ")), RecordStartDateTime: start, RecordEndDateTime: null });
+      if (parsed) identifier(pk, "idSystem.run", `${parsed.body}-${parsed.dv}`);
+    }
+    if (kind === "otro") return pk;
+    const relKey = `prel:${pk}:${kind}`;
+    if (!ids.has(relKey) && ids.has(`person:${a.studentId}`)) {
+      push("PersonRelationship", {
+        PersonRelationshipId: id(relKey), PersonId: id(pk), RelatedPersonId: id(`person:${a.studentId}`), RefPersonRelationshipId: ref(kind === "apoderado" ? "relationship.apoderado" : "relationship.autorizadoRetiro"),
+        RetirarEstudianteIndicador: opts.retira ? 1 : null, RecordStartDateTime: start, RecordEndDateTime: opts.until ? `${opts.until}T23:59:59${dayStart(opts.until, tz).slice(19)}` : null,
+      });
+    }
+    if (!ids.has(`opr:${pk}:org:course:${courseId}`)) opr(pk, `org:course:${courseId}`, kind === "apoderado" ? "role.apoderado" : "role.retira");
+    return pk;
+  };
+  let noGuardian = 0;
+  for (const st of input.students) {
+    if (st.guardian?.name.trim()) adultPerson({ studentId: st.id, ...st.guardian }, st.courseId, "apoderado", { retira: true });
+    else noGuardian++;
+  }
+  for (const p of input.pickups) {
+    const courseId = studentCourse.get(p.studentId);
+    if (courseId) adultPerson(p, courseId, "retira", { retira: true });
+  }
+  if (noGuardian) issues.push({ severity: "error", message: `${noGuardian} estudiante(s) sin apoderado en la matrícula: el validador exige al menos una persona autorizada para retirarlo` });
 
   // ── Asistencia ──
   const statusRef: Record<EdeAttendanceStatus, EdeRefKey> = { present: "attStatus.present", late: "attStatus.tardy", absent: "attStatus.unexcusedAbsence", justified: "attStatus.excusedAbsence" };
@@ -218,6 +279,44 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   }
   if (unsigned) issues.push({ severity: "aviso", message: `${unsigned} clase(s) sin firmar no se exportan` });
   if (noKey) issues.push({ severity: "error", message: `${noKey} clase(s) firmadas sin el código del verificador: el validador exige la firma en cada registro de asistencia` });
+
+  // ── Salidas o retiros (fn0FB): tres eventos «EarlyDeparture» a la misma hora ──
+  // 1) el estudiante en la asignatura en curso, 2) el estudiante en el establecimiento, 3) quien retira, ratificado por el funcionario.
+  const documentRow = (docIds: string[]) => {
+    const doc = docIds.find((d) => input.documents[d]);
+    if (doc && !ids.has(`doc:${doc}`)) push("Document", { documentId: id(`doc:${doc}`), fileScanBase64: input.documents[doc]! });
+    return doc ? id(`doc:${doc}`) : null;
+  };
+  const staffSchoolRole = (staffId: string) => {
+    const pk = staffPerson(staffId);
+    return ids.has(`opr:${pk}:org:school`) ? id(`opr:${pk}:org:school`) : opr(pk, "org:school", "role.funcionario");
+  };
+  let exitUnsigned = 0, exitNoClass = 0, exitNoPickupProof = 0, exitOneOff = 0;
+  for (const e of input.exits) {
+    if (!ids.has(`opr:person:${e.studentId}:org:course:${e.courseId}`)) continue;
+    const when = `${e.date}T${e.exitTime}:00${dayStart(e.date, tz).slice(19)}`;
+    const key = e.signatureKey ?? null;
+    const keyDate = e.signedAt ? withOffset(e.signedAt, tz) : null;
+    if (!key) exitUnsigned++;
+    const base = { RefAttendanceStatusId: ref("attStatus.earlyDeparture"), Date: when, VirtualIndicator: 0, observaciones: e.reason, RecordStartDateTime: start, RecordEndDateTime: null };
+    const sectionRole = e.subjectId ? `opr:person:${e.studentId}:org:section:${e.subjectId}` : "";
+    if (sectionRole && ids.has(sectionRole)) push("RoleAttendanceEvent", { RoleAttendanceEventId: id(`att:exit:class:${e.id}`), OrganizationPersonRoleId: id(sectionRole), RefAttendanceEventTypeId: ref("attEvent.classSection"), ...base, digitalRandomKey: key, digitalRandomKeyDate: keyDate });
+    else exitNoClass++;
+    push("RoleAttendanceEvent", { RoleAttendanceEventId: id(`att:exit:school:${e.id}`), OrganizationPersonRoleId: id(`opr:person:${e.studentId}:org:school`), RefAttendanceEventTypeId: ref("attEvent.establecimiento"), ...base, digitalRandomKey: key, digitalRandomKeyDate: keyDate });
+    // Quien no estaba en el registro de autorizados retira con permiso del apoderado solo por ese día.
+    if (!e.pickup.authorized) exitOneOff++;
+    const pk = adultPerson({ studentId: e.studentId, name: e.pickup.name, rut: e.pickup.rut }, e.courseId, "retira", { retira: true, until: e.pickup.authorized ? undefined : e.date });
+    const proof = documentRow(e.docIds);
+    if (proof == null) exitNoPickupProof++;
+    push("RoleAttendanceEvent", {
+      RoleAttendanceEventId: id(`att:exit:pickup:${e.id}`), OrganizationPersonRoleId: id(`opr:${pk}:org:course:${e.courseId}`), RefAttendanceEventTypeId: ref("attEvent.establecimiento"), ...base,
+      oprIdRatificador: staffById.has(e.by) ? staffSchoolRole(e.by) : null, firmaRatificador: key, fechaRatificador: keyDate, fileScanBase64: proof,
+    });
+  }
+  if (exitUnsigned) issues.push({ severity: "error", message: `${exitUnsigned} retiro(s) sin firma con verificador de quien los registró: el validador exige digitalRandomKey y firmaRatificador` });
+  if (exitNoClass) issues.push({ severity: "error", message: `${exitNoClass} retiro(s) fuera del horario de clases o de cursos sin horario: falta el evento de la asignatura en curso` });
+  if (exitNoPickupProof) issues.push({ severity: "error", message: `${exitNoPickupProof} retiro(s) sin la firma en pantalla de quien retira ni su poder escaneado` });
+  if (exitOneOff) issues.push({ severity: "aviso", message: `${exitOneOff} retiro(s) por personas fuera del registro de autorizados: su autorización se exporta solo por ese día, y el validador las rechaza` });
 
   // ── Horario (CourseSectionSchedule) y una sesión de calendario por día de clase firmada ──
   const DAY = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
@@ -331,20 +430,6 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   // ── Entrevistas y reuniones con apoderados ──
   // fn8F3: cada una necesita al apoderado (tipo «Apoderado», relación «Apoderado(a)/Tutor(a)», rol «Padre, madre o
   // apoderado») con el acta escaneada en IncidentPerson.fileScanBase64 → Document.documentId.
-  const guardianPerson = (a: { studentId: string; name: string; rut?: string }, courseId: string) => {
-    const parsed = a.rut ? parseRut(a.rut) : null;
-    const pk = `person:guardian:${a.studentId}:${parsed ? parsed.body : a.name.trim().toLowerCase()}`;
-    if (!ids.has(pk)) {
-      // «Nombre [segundo nombre] Apellido1 Apellido2»: los dos últimos son los apellidos si hay más de dos palabras.
-      const words = a.name.trim().split(/\s+/);
-      const cut = words.length > 2 ? words.length - 2 : 1;
-      push("Person", { PersonId: id(pk), ...splitNames(words.slice(0, cut).join(" "), words.slice(cut).join(" ")), RecordStartDateTime: start, RecordEndDateTime: null });
-      if (parsed) identifier(pk, "idSystem.run", `${parsed.body}-${parsed.dv}`);
-      if (ids.has(`person:${a.studentId}`)) push("PersonRelationship", { PersonRelationshipId: id(`prel:${pk}`), PersonId: id(pk), RelatedPersonId: id(`person:${a.studentId}`), RefPersonRelationshipId: ref("relationship.apoderado"), RecordStartDateTime: start, RecordEndDateTime: null });
-    }
-    if (!ids.has(`opr:${pk}:org:course:${courseId}`)) opr(pk, `org:course:${courseId}`, "role.apoderado");
-    return pk;
-  };
   let withoutActa = 0, actaWithoutContent = 0, guardiansWithoutRut = 0, meetingsOut = 0;
   for (const m of input.meetings) {
     if (!ids.has(`org:course:${m.courseId}`)) continue;
@@ -368,16 +453,15 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       });
     }
     // Un acta por registro; si se adjuntó más de una, vale la primera con contenido.
-    const actaId = m.actaIds.find((d) => input.documents[d]);
+    const acta = documentRow(m.actaIds);
     if (!m.actaIds.length) withoutActa++;
-    else if (!actaId) actaWithoutContent++;
-    if (actaId && !ids.has(`doc:${actaId}`)) push("Document", { documentId: id(`doc:${actaId}`), fileScanBase64: input.documents[actaId]! });
+    else if (acta == null) actaWithoutContent++;
     for (const [i, a] of m.attendees.entries()) {
       if (!a.rut) guardiansWithoutRut++;
-      const pk = guardianPerson(a, m.courseId);
+      const pk = adultPerson(a, m.courseId, "apoderado");
       push("IncidentPerson", {
         IncidentId: inc, PersonId: id(pk), Identifier: `${m.id}:a${i + 1}`, RefIncidentPersonTypeId: ref("incidentPersonType.apoderado"),
-        RefIncidentPersonRoleTypeId: ref(interview ? "incidentPersonRole.entrevistado" : "incidentPersonRole.asisteReunion"), Date: when, fileScanBase64: actaId ? id(`doc:${actaId}`) : null, RecordStartDateTime: start, RecordEndDateTime: null,
+        RefIncidentPersonRoleTypeId: ref(interview ? "incidentPersonRole.entrevistado" : "incidentPersonRole.asisteReunion"), Date: when, fileScanBase64: acta, RecordStartDateTime: start, RecordEndDateTime: null,
       });
     }
     meetingsOut++;
@@ -386,6 +470,57 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (withoutActa) issues.push({ severity: "error", message: `${withoutActa} entrevista(s) o reunión(es) sin el acta firmada escaneada: el validador exige el documento del apoderado` });
   if (actaWithoutContent) issues.push({ severity: "error", message: `${actaWithoutContent} acta(s) adjunta(s) no se pudieron leer, así que no se exportan` });
   if (guardiansWithoutRut) issues.push({ severity: "aviso", message: `${guardiansWithoutRut} asistente(s) a entrevistas o reuniones sin RUN registrado` });
+
+  // ── Entrega de documentación (fn1FA, fn1FC) ──
+  // Al estudiante retirado: «Entrega de documentos retiro de un estudiante»; a los demás, «continuidad de estudios».
+  const withdrawnIds = new Set(input.students.filter((s) => s.withdrawnOn).map((s) => s.id));
+  const deliveredTo = new Set<string>();
+  const staffType: Record<"docente" | "profesional" | "administrativo", EdeRefKey> = { docente: "incidentPersonType.docente", profesional: "incidentPersonType.profesional", administrativo: "incidentPersonType.administrativo" };
+  let deliveryUnsigned = 0, deliveryNoReceipt = 0, deliveryNotGuardian = 0;
+  for (const d of input.deliveries) {
+    const studentRole = `opr:person:${d.studentId}:org:course:${d.courseId}`;
+    if (!ids.has(studentRole)) continue;
+    deliveredTo.add(d.studentId);
+    const inc = id(`inc:delivery:${d.id}`);
+    const time = d.time ?? "00:00";
+    const when = `${d.on}T${time}:00${dayStart(d.on, tz).slice(19)}`;
+    const reporter = staffById.has(d.by) ? staffPerson(d.by) : null;
+    push("Incident", {
+      IncidentId: inc, IncidentIdentifier: d.id.slice(0, 40), IncidentDate: d.on, IncidentTime: `${time}:00`, IncidentDescription: d.documents,
+      RefIncidentBehaviorId: ref(withdrawnIds.has(d.studentId) ? "incidentBehavior.entregaRetiro" : "incidentBehavior.entregaContinuidad"), RefIncidentTimeDescriptionCodeId: ref("incidentTime.horaClases"),
+      RegulationViolatedDescription: null, IncidentReporterId: reporter ? id(reporter) : null, RefIncidentReporterTypeId: reporter ? ref("incidentReporterType.docente") : null,
+      OrganizationId: id(`org:course:${d.courseId}`), OrganizationPersonRoleId: id(studentRole), RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+    if (reporter) {
+      if (!d.signatureKey) deliveryUnsigned++;
+      push("IncidentPerson", { IncidentId: inc, PersonId: id(reporter), Identifier: `${d.id}:entrega`.slice(0, 40), RefIncidentPersonTypeId: ref(staffType[d.byKind]), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.entrega"), Date: d.signedAt ? withOffset(d.signedAt, tz) : when, digitalRandomKey: d.signatureKey ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
+    }
+    const receipt = documentRow(d.docIds);
+    if (receipt == null) deliveryNoReceipt++;
+    const receiverKey = d.receiver.kind === "estudiante" ? `person:${d.studentId}` : adultPerson({ studentId: d.studentId, name: d.receiver.name, rut: d.receiver.rut }, d.courseId, d.receiver.kind === "apoderado" ? "apoderado" : "otro");
+    if (d.receiver.kind !== "apoderado") deliveryNotGuardian++;
+    push("IncidentPerson", {
+      IncidentId: inc, PersonId: id(receiverKey), Identifier: `${d.id}:recibe`.slice(0, 40),
+      RefIncidentPersonTypeId: ref(d.receiver.kind === "apoderado" ? "incidentPersonType.apoderado" : d.receiver.kind === "estudiante" ? "incidentPersonType.estudiante" : "incidentPersonType.otro"),
+      RefIncidentPersonRoleTypeId: ref("incidentPersonRole.recibe"), Date: when, fileScanBase64: receipt, RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+  }
+  const withdrawnWithout = [...withdrawnIds].filter((s) => !deliveredTo.has(s)).length;
+  if (deliveryUnsigned) issues.push({ severity: "error", message: `${deliveryUnsigned} entrega(s) de documentos sin firma con verificador de quien entregó` });
+  if (deliveryNoReceipt) issues.push({ severity: "error", message: `${deliveryNoReceipt} entrega(s) sin firma de recepción en pantalla ni comprobante escaneado: el validador exige el documento` });
+  if (deliveryNotGuardian) issues.push({ severity: "aviso", message: `${deliveryNotGuardian} entrega(s) recibidas por alguien que no es el apoderado: el validador busca al apoderado` });
+  if (withdrawnWithout) issues.push({ severity: "error", message: `${withdrawnWithout} estudiante(s) retirado(s) sin entrega de documentos registrada` });
+
+  // ── Programa de Integración Escolar: solo la nómina, sin diagnósticos ──
+  for (const p of input.pie) {
+    const courseId = studentCourse.get(p.studentId);
+    const role = courseId && `opr:person:${p.studentId}:org:course:${courseId}`;
+    if (!role || !ids.has(role)) continue;
+    const from = dayStart(p.since, tz), to = p.until ? dayStart(p.until, tz) : null;
+    push("PersonProgramParticipation", { OrganizationPersonRoleId: id(role), RefParticipationTypeId: ref("participation.pie"), ParticipationStatus: p.until ? "Egresado" : "Activo", RefProgramExitReasonId: null, RecordStartDateTime: from, RecordEndDateTime: to });
+    push("ProgramParticipationSpecialEducation", { OrganizationPersonRoleId: id(role), SpecialEducationServicesExitDate: p.until ?? null, RecordStartDateTime: from, RecordEndDateTime: to });
+  }
+  if (input.pie.length) issues.push({ severity: "aviso", message: "El validador oficial no revisa el PIE: se exporta solo la nómina del programa, sin diagnósticos, y su formato no está confirmado" });
 
   // ── Calendario: año escolar y suspensiones ──
   const calendar = id("cal:year");
@@ -402,7 +537,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
     _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
     _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship"],
-    _ComunidadEducativa: ["OrganizationPersonRole", "K12StudentEnrollment", "RoleAttendanceEvent"],
+    _Intervenciones: ["PersonProgramParticipation", "ProgramParticipationSpecialEducation"],
+    _ComunidadEducativa: ["OrganizationPersonRole", "RoleStatus", "K12StudentEnrollment", "RoleAttendanceEvent"],
     _Cursos: ["CourseSectionSchedule"],
     _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],
   };

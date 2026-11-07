@@ -85,7 +85,21 @@ apoderados», con el apoderado (PersonRelationship «Apoderado(a)/Tutor(a)» y r
 (Document, enlazada desde `IncidentPerson.fileScanBase64`), como exige fn8F3. En la reunión asiste el apoderado titular de la
 matrícula de cada estudiante marcado. Supuesto por validar: que la Superintendencia acepte el acta escaneada como firma del apoderado.
 
-**Pendiente:** PIE, salidas, entregas, código de grado de `listValidationData`, y correr `check`.
+**Sexta etapa (hecha):**
+- Apoderado titular de la matrícula y autorizados a retirar en PersonRelationship, con `RetirarEstudianteIndicador` (fn0FA).
+- Cada retiro lo firma con verificador quien lo registra, y se exporta con los tres eventos «EarlyDeparture» que pide fn0FB: el
+  estudiante en la asignatura que el horario indica a esa hora, en el establecimiento, y quien retira, ratificado por el
+  funcionario y con su firma en pantalla o el poder escaneado. Quien no estaba en el registro de autorizados queda autorizado solo
+  ese día, y el informe advierte que el validador lo rechaza.
+- Cada entrega de documentos la firma con verificador quien entrega. Se exporta como Incident «Entrega de documentos retiro de un
+  estudiante» (estudiante retirado, con PersonStatus «retirado definitivamente») o «continuidad de estudios», con quien recibe y la
+  firma de recepción o el comprobante en Document (fn1FA, fn1FC).
+- PIE: el validador no lo revisa. Se exporta solo la nómina (PersonProgramParticipation), sin diagnósticos.
+- Inconsistencia del validador: fn6E0 espera `ClassPeriod` como «Hora 02», y fn9F1 lo filtra con una expresión de
+  «Bloque». Se mantiene «Hora 02» hasta correr `check`.
+
+**Pendiente:** documentos de interés general entregados a cada apoderado (fn1FB), títulos de los docentes (fn9F0), datos de
+CourseSection (capacidad, idioma; fn9F1), código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula
 
