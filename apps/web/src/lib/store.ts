@@ -1,4 +1,5 @@
 import "server-only";
+import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
 import { SUBJECTS, uuidv7, type ConductRecord, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school } from "./demo";
@@ -95,6 +96,8 @@ type State = {
   evaluations: Evaluation[];
   lessons: Lesson[];
   corrections: (Correction & { courseId: string })[];
+  /** Bitácora del libro: todo ingreso, cambio, firma o exportación (ver domain/logbook). */
+  logbook: LogbookEvent[];
 };
 
 export function initStore(): State {
@@ -116,11 +119,16 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export const logbook = (): LogbookEvent[] => (state().logbook ??= []);
+
+/** Deja constancia en la bitácora del libro. */
+export const logEvent = (input: LogbookInput) => appendEvent(logbook(), input, uuidv7());
 
 const gradeId = (evaluationId: string, studentId: string) => `${evaluationId}::${studentId}`;
 

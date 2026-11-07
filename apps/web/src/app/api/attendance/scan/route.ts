@@ -4,6 +4,7 @@ import { courseById, fullName, school } from "@/lib/demo";
 import { awardDailyAttendance } from "@/lib/rewards";
 import { canScan, getSession } from "@/lib/session";
 import { readState, withState } from "@/lib/state";
+import { logEvent } from "@/lib/store";
 
 /**
  * Sincronización de escaneos de credenciales.
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
             source: "credential_scan",
             recordedBy: ev.deviceId,
           });
+          logEvent({ actor: session.person.id, action: "crear", entity: "asistencia_diaria", recordId: clientId, courseId: st.courseId, after: { studentId: st.id, date: group.date, status: outcome.status, source: "credential_scan" } });
           // Condicionamiento: llegar a tiempo se asocia de inmediato a un reconocimiento (y los hitos de constancia).
           awardDailyAttendance(st.id, group.date);
         }

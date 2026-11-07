@@ -4,3 +4,5 @@ export * from "./safeguarding/crypto";
 export * from "./ai/gemini";
 export * from "./safeguarding/service";
 export * from "./auth/secrets";
+export * from "./logbook";
+export * from "./auth/mineduc-otp";

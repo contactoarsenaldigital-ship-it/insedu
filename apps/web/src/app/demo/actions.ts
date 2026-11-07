@@ -6,6 +6,8 @@ import { readState, resetDemo } from "@/lib/state";
 
 /** Reinicia la demostración (borra lo registrado y vuelve a generar el colegio ficticio). */
 export async function reset(f: FormData) {
+  // Los registros oficiales deben conservarse al menos cinco años (Circular de registros, 6.2).
+  if (process.env.INSEDU_DATA_MODE === "real") redirect("/demo?error=" + encodeURIComponent("Con datos reales no se puede reiniciar: los registros oficiales deben conservarse."));
   await readState();
   const s = await getSession();
   if (!s || !s.person.roles.some((r) => r === "school_admin" || r === "director")) {

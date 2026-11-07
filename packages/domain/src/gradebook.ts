@@ -103,6 +103,16 @@ export type Lesson = {
   teacherId: string;
   attendance: Record<string, LessonStatus>; // studentId → estado
   signedAt?: string;
+  /** Firma con verificador de identidad. Clases antiguas pueden tener solo `signedAt`. */
+  signature?: LessonSignature;
+};
+
+export type LessonSignature = {
+  by: string;
+  at: string;
+  /** «mineduc»: verificador oficial. «interno»: solo maqueta, sin validez ante fiscalización. */
+  method: "mineduc" | "interno";
+  rut?: string;
 };
 
 export type LessonDraft = Pick<Lesson, "subjectId" | "courseId" | "date" | "block" | "objective" | "content">;

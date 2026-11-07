@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { demoSignCode } from "@/lib/verifier";
 import { notFound, redirect } from "next/navigation";
 import {
   can,
@@ -88,6 +89,18 @@ export default async function SubjectBook({ params, searchParams }: { params: Pr
 
 // ───────────────────────────── Clases ─────────────────────────────
 
+const SIGNATURE_LABEL = {
+  mineduc: "con verificador del Mineduc",
+  interno: "con verificador de demostración",
+  sin: "sin verificador",
+};
+
+function DemoCode({ session }: { session: Session }) {
+  const code = demoSignCode(session);
+  if (!code) return null;
+  return <p className="notice">Demostración: su código vigente es <strong>{code}</strong> (cambia cada 30 segundos). En el piloto se firma con la app vinculada en tramites.mineduc.cl.</p>;
+}
+
 function Lessons({ subject, students, session, canWrite, canCorrect }: { subject: Subject; students: Student[]; session: Session; canWrite: boolean; canCorrect: boolean }) {
   const lessons = repo.lessonsOf(subject.id);
   return (
@@ -128,9 +141,12 @@ function Lessons({ subject, students, session, canWrite, canCorrect }: { subject
                 </tbody>
               </table>
             </div>
-            <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "12px 0" }}>
-              <input type="checkbox" name="sign" value="1" /> Firmar al guardar (después, cualquier cambio requiere corrección con motivo)
-            </label>
+            <div className="field" style={{ margin: "12px 0", maxWidth: 360 }}>
+              <label htmlFor="code">Firmar al guardar: código de su verificador (opcional)</label>
+              <input id="code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} placeholder="6 dígitos" />
+              <span className="muted">Sin código, la clase queda como borrador. Una vez firmada, cualquier cambio requiere corrección con motivo.</span>
+            </div>
+            <DemoCode session={session} />
             <button className="btn primary">Guardar clase</button>
           </form>
         </section>
@@ -145,6 +161,7 @@ function Lessons({ subject, students, session, canWrite, canCorrect }: { subject
           </div>
         </div>
         {!lessons.length && <p className="muted">Aún no hay clases registradas en esta asignatura.</p>}
+        {canWrite && lessons.some((l) => !l.signedAt) && <DemoCode session={session} />}
         {lessons.map((l) => <LessonCard key={l.id} lesson={l} students={students} subject={subject} canWrite={canWrite} canCorrect={canCorrect} isAuthor={l.teacherId === session.person.id} />)}
       </section>
     </>
@@ -161,14 +178,18 @@ function LessonCard({ lesson, students, subject, canWrite, canCorrect, isAuthor 
       <span className="muted">{counts.join(" · ")}</span>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {lesson.signedAt ? (
-          <span className="tag ok">✓ Firmada {new Date(lesson.signedAt).toLocaleString("es-CL", { timeZone: "America/Santiago" })}</span>
+          <>
+            <span className="tag ok">✓ Firmada {new Date(lesson.signedAt).toLocaleString("es-CL", { timeZone: "America/Santiago" })}</span>
+            <span className="muted">{SIGNATURE_LABEL[lesson.signature?.method ?? "sin"]}</span>
+          </>
         ) : (
           <>
             <span className="tag media">Borrador sin firmar</span>
             {canWrite && isAuthor && (
-              <form action={signLesson}>
+              <form action={signLesson} className="sign-form">
                 <input type="hidden" name="subjectId" value={subject.id} />
                 <input type="hidden" name="lessonId" value={lesson.id} />
+                <input name="code" aria-label="Código de 6 dígitos de su verificador" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required placeholder="Código" />
                 <button className="btn">Firmar clase</button>
               </form>
             )}

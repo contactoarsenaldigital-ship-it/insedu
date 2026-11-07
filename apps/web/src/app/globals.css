@@ -505,3 +505,7 @@ fieldset.plain:disabled .question { opacity: .75; }
 .import-counts span { font-size: .82rem; color: var(--ink-2); }
 .import-review { display: grid; gap: 10px; }
 .columns-help { display: grid; gap: 4px; padding-left: 1.2rem; font-size: .9rem; }
+
+/* ───────────── Firma y bitácora del libro ───────────── */
+.sign-form { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.sign-form input[name="code"] { width: 96px; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; letter-spacing: .1em; }

@@ -8,7 +8,7 @@ import { accountByEmail, accountsState, audit, type Account, type ImportPlanRow,
 import { createAccount, type Proposal } from "./admin";
 import { school } from "./demo";
 import { profile } from "./health";
-import { addCourseSubjects, repo } from "./store";
+import { addCourseSubjects, logEvent, repo } from "./store";
 
 /**
  * Carga masiva inicial: archivo → tabla → plan por fila (crear, actualizar, omitir, error) →
@@ -189,10 +189,13 @@ export function applyImport(p: PendingImport, by: string, origin: string): strin
     if (p.kind === "estudiantes") {
       const courseId = courseByName(v.curso!)!.id;
       const existing = studentByRun(v.run!);
-      if (existing) Object.assign(existing, { firstName: v.nombres!, lastName: v.apellidos!, courseId });
-      else {
+      if (existing) {
+        logEvent({ actor: by, action: "modificar", entity: "matricula", recordId: existing.id, courseId, before: { firstName: existing.firstName, lastName: existing.lastName, courseId: existing.courseId }, after: { firstName: v.nombres!, lastName: v.apellidos!, courseId }, reason: `Carga masiva: ${p.fileName}` });
+        Object.assign(existing, { firstName: v.nombres!, lastName: v.apellidos!, courseId });
+      } else {
         const id = `est-${crypto.randomUUID().slice(0, 12)}`;
         s.students.push({ id, tenantId: s.tenantId, rut: normalizeRut(v.run!), firstName: v.nombres!, lastName: v.apellidos!, courseId });
+        logEvent({ actor: by, action: "crear", entity: "matricula", recordId: id, courseId, after: { rut: normalizeRut(v.run!), firstName: v.nombres!, lastName: v.apellidos! }, reason: `Carga masiva: ${p.fileName}` });
         const hp = profile(id); // ficha en blanco; solo los datos que vienen en el archivo
         if (v.fecha_nacimiento) hp.birthDate = parseDate(v.fecha_nacimiento)!;
         if (v.sexo) hp.sex = sexFrom(v.sexo);

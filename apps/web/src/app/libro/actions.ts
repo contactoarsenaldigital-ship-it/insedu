@@ -14,11 +14,13 @@ import {
   validateReason,
   type Action,
   type ConductKind,
+  type LessonSignature,
   type LessonStatus,
 } from "@insedu/domain";
 import { getSession, type Session } from "@/lib/session";
 import { award, awardLessonArrival, awardOnce } from "@/lib/rewards";
-import { repo } from "@/lib/store";
+import { logEvent, repo } from "@/lib/store";
+import { verifySignature } from "@/lib/verifier";
 
 /**
  * Acciones del libro de clases. Cada una:
@@ -73,25 +75,37 @@ async function createLessonImpl(form: FormData) {
     if (STATUSES.includes(v)) attendance[st.id] = v;
   }
   const lesson = repo.addLesson({ ...draft, teacherId: session.person.id, attendance });
+  logEvent({ actor: session.person.id, action: "crear", entity: "clase", recordId: lesson.id, courseId, after: { ...draft, attendance } });
   for (const [studentId, status] of Object.entries(attendance)) awardLessonArrival(studentId, draft.date, draft.block, status);
 
-  if (form.get("sign") === "1") {
+  const code = str(form, "code");
+  if (code) {
     const problems = canSign(lesson, repo.studentsOf(courseId).map((s) => s.id));
     if (problems.length) back(subjectId, "clases", { error: `Clase guardada sin firmar: ${problems.join(". ")}` });
-    repo.updateLesson(lesson.id, { signedAt: new Date().toISOString() });
+    const signed = await verifySignature(session, code);
+    if (!signed.ok) back(subjectId, "clases", { error: `Clase guardada como borrador, sin firma. ${signed.error}` });
+    applySignature(lesson.id, courseId, signed.signature);
     done(subjectId, "clases", "Clase registrada y firmada.");
   }
   done(subjectId, "clases", "Clase registrada como borrador. Fírmela para cerrar el registro.");
 }
 
+function applySignature(lessonId: string, courseId: string, signature: LessonSignature) {
+  repo.updateLesson(lessonId, { signedAt: signature.at, signature });
+  logEvent({ actor: signature.by, action: "firmar", entity: "clase", recordId: lessonId, courseId, after: { method: signature.method, rut: signature.rut } });
+}
+
 async function signLessonImpl(form: FormData) {
   const subjectId = str(form, "subjectId");
-  const { courseId } = await guard(subjectId, "lesson.sign", "clases");
+  const { session, courseId } = await guard(subjectId, "lesson.sign", "clases");
   const lesson = repo.lesson(str(form, "lessonId"));
   if (!lesson || lesson.subjectId !== subjectId) back(subjectId, "clases", { error: "Clase no encontrada." });
+  if (lesson.teacherId !== session.person.id) back(subjectId, "clases", { error: "Solo quien registró la clase puede firmarla." });
   const problems = canSign(lesson, repo.studentsOf(courseId).map((s) => s.id));
   if (problems.length) back(subjectId, "clases", { error: problems.join(". ") });
-  repo.updateLesson(lesson.id, { signedAt: new Date().toISOString() });
+  const signed = await verifySignature(session, str(form, "code"));
+  if (!signed.ok) back(subjectId, "clases", { error: signed.error });
+  applySignature(lesson.id, courseId, signed.signature);
   done(subjectId, "clases", "Clase firmada.");
 }
 
@@ -106,8 +120,9 @@ async function updateLessonAttendanceImpl(form: FormData) {
   if (lesson.attendance[studentId] === status) back(subjectId, "clases", { error: "El estado no cambió." });
 
   if (!lesson.signedAt) {
-    const { courseId } = await guard(subjectId, "lesson.write", "clases");
+    const { session, courseId } = await guard(subjectId, "lesson.write", "clases");
     if (!repo.studentsOf(courseId).some((s) => s.id === studentId)) back(subjectId, "clases", { error: "Estudiante no pertenece al curso." });
+    logEvent({ actor: session.person.id, action: "modificar", entity: "asistencia", recordId: `${lesson.id}::${studentId}`, courseId, before: lesson.attendance[studentId] ?? null, after: status });
     repo.updateLesson(lesson.id, { attendance: { ...lesson.attendance, [studentId]: status } });
     awardLessonArrival(studentId, lesson.date, lesson.block, status);
     done(subjectId, "clases", "Asistencia actualizada.");
@@ -128,6 +143,7 @@ async function updateLessonAttendanceImpl(form: FormData) {
     by: session.person.id,
     courseId,
   });
+  logEvent({ actor: session.person.id, action: "corregir", entity: "asistencia", recordId: `${lesson.id}::${studentId}`, courseId, before: lesson.attendance[studentId] ?? null, after: status, reason });
   repo.updateLesson(lesson.id, { attendance: { ...lesson.attendance, [studentId]: status } });
   awardLessonArrival(studentId, lesson.date, lesson.block, status); // los puntos ya ganados no se quitan si se corrige a la baja
   done(subjectId, "clases", "Corrección registrada con trazabilidad.");
@@ -137,7 +153,7 @@ async function updateLessonAttendanceImpl(form: FormData) {
 
 async function addEvaluationImpl(form: FormData) {
   const subjectId = str(form, "subjectId");
-  await guard(subjectId, "grade.write", "notas");
+  const { session, courseId } = await guard(subjectId, "grade.write", "notas");
   const title = str(form, "title");
   const date = str(form, "date");
   const weight = Number(str(form, "weight").replace(",", "."));
@@ -145,6 +161,7 @@ async function addEvaluationImpl(form: FormData) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) back(subjectId, "notas", { error: "Fecha inválida." });
   if (!(weight > 0 && weight <= 10)) back(subjectId, "notas", { error: "La ponderación debe estar entre 0,1 y 10." });
   const ev = repo.addEvaluation({ subjectId, title, date, weight });
+  logEvent({ actor: session.person.id, action: "crear", entity: "evaluacion", recordId: ev.id, courseId, after: { subjectId, title, date, weight } });
   revalidatePath(`/libro/${subjectId}`);
   back(subjectId, "notas", { ok: `Evaluación "${title}" creada. Ingrese las notas.` }, `&eval=${ev.id}`);
 }
@@ -198,6 +215,7 @@ async function saveGradesImpl(form: FormData) {
         by: session.person.id,
         courseId,
       });
+      logEvent({ actor: session.person.id, action: "corregir", entity: "nota", recordId: `${evaluationId}::${c.studentId}`, courseId, before: c.before, after: c.value, reason });
       repo.setGrade({ evaluationId, studentId: c.studentId, value: c.value }, session.person.id);
     }
   }
@@ -206,6 +224,7 @@ async function saveGradesImpl(form: FormData) {
   const previous = repo.gradesOf(subjectId).filter((g) => earlier.has(g.evaluationId));
   const subjectName = repo.subject(subjectId)!.name;
   for (const c of toCreate) {
+    logEvent({ actor: session.person.id, action: "crear", entity: "nota", recordId: `${evaluationId}::${c.studentId}`, courseId, after: c.value });
     repo.setGrade({ evaluationId, studentId: c.studentId, value: c.value }, session.person.id);
     const delta = gradeImprovement(previous.filter((g) => g.studentId === c.studentId).map((g) => g.value), c.value);
     if (delta) awardOnce(c.studentId, recognize({ type: "grade_improved", subject: subjectName, delta, date: ev.date }), "notas", rewardRef.grade(evaluationId));
@@ -240,6 +259,7 @@ async function addConductImpl(form: FormData) {
     description,
     recordedBy: session.person.id,
   });
+  logEvent({ actor: session.person.id, action: "crear", entity: "anotacion", recordId: rec0.id, courseId, after: { studentId, kind, severity: rec0.severity, description } });
   const rec = recognize({ type: "conduct", kind, date: "" });
   award(studentId, rec, "anotación", rec0.id); // refuerzo inmediato en el saldo del estudiante
   done(

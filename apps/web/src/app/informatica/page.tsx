@@ -1,6 +1,8 @@
 import { ATTENDANCE_TEMPLATE, checkAttendance, checkGrades, GRADES_TEMPLATE } from "@insedu/domain";
 import { redirect } from "next/navigation";
+import { verifyLogbook } from "@insedu/domain/server";
 import { school } from "@/lib/demo";
+import { findPerson, logbook } from "@/lib/store";
 import { canExportMineduc, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 
@@ -21,6 +23,8 @@ export default async function ITPage() {
   const attRows = s.attendance.filter((a) => week.includes(a.date)).map((record) => ({ student: st.get(record.studentId)!, record, rbd: s.rbd }));
   const attIssues = checkAttendance(attRows, week);
   const gradeIssues = checkGrades(s.grades.map((grade) => ({ student: st.get(grade.studentId)!, grade, rbd: s.rbd })));
+  const check = verifyLogbook(logbook());
+  const events = logbook().slice(-50).reverse();
 
   return (
     <main className="wrap" style={{ maxWidth: 900 }}>
@@ -47,6 +51,47 @@ export default async function ITPage() {
           <a className="btn" href="/api/export/notas">Descargar CSV</a>
         </div>
       </div>
+
+      <section className="section">
+        <h2>Respaldo y trazabilidad del libro de clases</h2>
+        <p>Descarga en Excel todo lo registrado en el libro, para entregarlo ante una fiscalización. La salud y Salvaguarda no se incluyen.</p>
+        <p className="notice warn">Todavía no es el formato del Estándar de Datos para la Educación que exige la Circular de registros: ese traspaso está pendiente.</p>
+        <form action="/api/libro-respaldo" method="get" className="req-actions" style={{ alignItems: "flex-end", marginTop: 12 }}>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label htmlFor="curso">Curso</label>
+            <select id="curso" name="curso" defaultValue="">
+              <option value="">Todo el establecimiento</option>
+              {s.courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <button className="btn">Descargar respaldo</button>
+        </form>
+
+        <h3 className="section">Bitácora de acciones</h3>
+        <p>
+          <span className={`tag ${check.ok ? "ok" : "alta"}`}>{check.ok ? "Integridad verificada" : "Se detectaron alteraciones"}</span>{" "}
+          <span className="muted">{check.checked} eventos revisados{check.ok ? "" : ` · ${check.altered.length} alterados · ${check.missingPrevious.length} sin su evento anterior`}</span>
+        </p>
+        {events.length === 0 ? <p className="muted">Aún no hay eventos. Cada clase, nota, anotación, firma o corrección quedará aquí.</p> : (
+          <div className="table-scroll">
+            <table className="data">
+              <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Registro</th><th>Motivo</th></tr></thead>
+              <tbody>
+                {events.map((e) => (
+                  <tr key={e.id}>
+                    <td>{new Date(e.at).toLocaleString("es-CL", { timeZone: "America/Santiago", dateStyle: "short", timeStyle: "medium" })}</td>
+                    <td>{findPerson(e.actor)?.name ?? e.actor}</td>
+                    <td>{e.action}</td>
+                    <td>{e.entity}</td>
+                    <td>{e.reason ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {check.checked > events.length && <p className="muted">Se muestran los últimos {events.length}; el respaldo incluye todos.</p>}
+      </section>
 
       {attIssues.length > 0 && (
         <section className="section">

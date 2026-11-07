@@ -46,7 +46,7 @@ export interface LibroRepository {
   addEvaluation(e: Omit<Evaluation, "id">): Evaluation;
   setGrade(g: GradeEntry, by: string): void;
   addLesson(l: Omit<Lesson, "id">): Lesson;
-  updateLesson(id: string, patch: Partial<Pick<Lesson, "objective" | "content" | "attendance" | "signedAt">>): void;
+  updateLesson(id: string, patch: Partial<Pick<Lesson, "objective" | "content" | "attendance" | "signedAt" | "signature">>): void;
   addConduct(c: Omit<ConductRecord, "id">): ConductRecord;
   addCorrection(c: Omit<Correction, "id" | "at"> & { courseId: string }): Correction;
 }
