@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { localDate, syncQueue, type ScanContext, type ScanEvent } from "@insedu/domain";
-import { courseById, fullName, school } from "@/lib/demo";
+import { activeStudents, courseById, fullName, school } from "@/lib/demo";
 import { awardDailyAttendance } from "@/lib/rewards";
 import { canScan, getSession } from "@/lib/session";
 import { readState, withState } from "@/lib/state";
@@ -14,7 +14,7 @@ import { logEvent } from "@/lib/store";
  */
 function contextFor(date: string): ScanContext {
   const s = school();
-  const byRut = new Map(s.students.map((st) => [st.rut, st]));
+  const byRut = new Map(activeStudents().map((st) => [st.rut, st]));
   const ruts = new Map(s.students.map((st) => [st.id, st.rut]));
   const today = s.attendance.filter((a) => a.date === date && a.source === "credential_scan");
   return {
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   }
   return withState(async () => {
     const s = school();
-    const byRut = new Map(s.students.map((st) => [st.rut, st]));
+    const byRut = new Map(activeStudents().map((st) => [st.rut, st]));
     const results = [];
     for (const group of groupByDate(events, s.timeZone)) {
       const ctx = contextFor(group.date);

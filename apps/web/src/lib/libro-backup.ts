@@ -1,6 +1,7 @@
 import "server-only";
 import { formatGrade, formatRut, parseRut, type Sheet } from "@insedu/domain";
 import { fullName, school } from "./demo";
+import { enrollmentSheet } from "./matricula";
 import { findPerson, logbook, repo } from "./store";
 
 /**
@@ -34,12 +35,7 @@ export function libroSheets(courseId?: string): Sheet[] {
   const events = logbook().filter((e) => !courseId || e.courseId === courseId);
 
   return [
-    {
-      name: "Antecedentes",
-      title: `Antecedentes de estudiantes${scope}`,
-      columns: studentCols,
-      rows: [...students].sort((a, b) => a.courseId.localeCompare(b.courseId) || a.lastName.localeCompare(b.lastName, "es")).map((st) => who(st.id)!),
-    },
+    enrollmentSheet(courseId),
     {
       name: "Control de asignatura",
       title: `Control de asignatura y firmas${scope}`,

@@ -20,7 +20,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Toda la información exportable | Circular 6.1.b; ORD 1355 punto 4 | Parcial: planilla completa, aún no en el formato EDE |
 | Versión vigente del estándar de datos (EDE) | Circular 6.1.b | **Pendiente** |
 | Disponible por al menos cinco años | Circular 6.2 | Parcial: reinicio bloqueado con datos reales; falta ambiente productivo con respaldos |
-| Registro de matrícula digital | Circular 5 y 6 | **Pendiente: requisito previo del libro digital** |
+| Registro de matrícula digital | Circular 5 y 6 | Implementado (`/matricula`), salvo adjuntar documentos escaneados y el formato EDE |
 | Registro de atención de profesionales y PIE | Circular 6.2.f | **Pendiente** |
 | Control de subvenciones y declaración en SIGE | Circular 6.2.c | **Pendiente** |
 | Registro de salidas o retiros | Circular 7 | **Pendiente** |
@@ -45,3 +45,10 @@ plazo mayor de cinco años hasta confirmarlo con la Superintendencia.
 
 Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip` que espera la imagen
 `edemineduc/etl` (`parse`, `insert`, `check`, repositorio `Admin-EDE/DockerEdeCode`) y validar el resultado.
+
+## Registro de matrícula
+
+- La baja no borra: conserva ficha e historia y saca al estudiante de las listas activas. El número nunca se reutiliza.
+- Las resoluciones y constancias se anotan como referencia. La Circular pide escanearlas y cargarlas en el sistema: falta
+  almacenamiento de archivos, junto con la declaración al SIGE.
+- El IPE se valida con la misma regla que el RUN: hay que confirmar el formato con un IPE real.

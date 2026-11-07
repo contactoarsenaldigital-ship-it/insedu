@@ -1,8 +1,8 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type ConductRecord, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type ConductRecord, type EnrollmentRecord, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
-import { school } from "./demo";
+import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
 
 /**
@@ -66,7 +66,7 @@ export const DEMO_STUDENT_ID = "student-001";
 export function demoStudentIds(): string[] {
   const s = school();
   return s.courses
-    .map((c) => (c.id === s.students.find((x) => x.id === DEMO_STUDENT_ID)?.courseId ? DEMO_STUDENT_ID : s.students.find((x) => x.courseId === c.id)?.id))
+    .map((c) => (c.id === s.students.find((x) => x.id === DEMO_STUDENT_ID && !x.withdrawnOn)?.courseId ? DEMO_STUDENT_ID : activeStudents().find((x) => x.courseId === c.id)?.id))
     .filter((id): id is string => !!id);
 }
 
@@ -98,6 +98,8 @@ type State = {
   corrections: (Correction & { courseId: string })[];
   /** Bitácora del libro: todo ingreso, cambio, firma o exportación (ver domain/logbook). */
   logbook: LogbookEvent[];
+  /** Registro general de matrícula (ver lib/matricula). */
+  enrollments: EnrollmentRecord[];
 };
 
 export function initStore(): State {
@@ -119,11 +121,13 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export const enrollmentRecords = (): EnrollmentRecord[] => (state().enrollments ??= []);
 
 export const logbook = (): LogbookEvent[] => (state().logbook ??= []);
 
@@ -138,7 +142,7 @@ export const repo: LibroRepository = {
   subjects: () => state().subjects,
   subject: (id) => state().subjects.find((x) => x.id === id),
   studentsOf: (courseId) =>
-    school().students.filter((s) => s.courseId === courseId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es")),
+    activeStudents().filter((s) => s.courseId === courseId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es")),
   person: (id) => findPerson(id),
 
   evaluationsOf: (subjectId) =>

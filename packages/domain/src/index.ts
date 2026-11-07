@@ -20,4 +20,5 @@ export * from "./spreadsheet";
 export * from "./riskboard";
 export * from "./surveys";
 export * from "./bulk-import";
+export * from "./enrollment";
 export * from "./auth/policy";

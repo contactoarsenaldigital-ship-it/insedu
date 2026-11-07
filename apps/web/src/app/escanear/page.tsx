@@ -1,5 +1,5 @@
 import { credentialPayload, formatRut } from "@insedu/domain";
-import { fullName, school } from "@/lib/demo";
+import { activeStudents, fullName, school } from "@/lib/demo";
 import { Scanner } from "./Scanner";
 import { canScan, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
@@ -14,7 +14,7 @@ export default async function ScanPage() {
   await readState();
   const session = await getSession();
   const allowed = !!session && canScan(session);
-  const samples = school().students.slice(0, 3);
+  const samples = activeStudents().slice(0, 3);
   return (
     <main className="wrap" style={{ maxWidth: 640 }}>
       <span className="muted">Portería · Inspectoría · Docentes</span>

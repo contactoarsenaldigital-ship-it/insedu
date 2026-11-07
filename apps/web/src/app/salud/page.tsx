@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatRut, type Role } from "@insedu/domain";
-import { courseById, fullName, school, studentById } from "@/lib/demo";
+import { activeStudents, courseById, fullName, school, studentById } from "@/lib/demo";
 import { fmtDate, fmtDT, studentLabel, who } from "@/lib/format";
 import { bmi, profile, visitsOf } from "@/lib/health";
 import { getSession } from "@/lib/session";
@@ -43,7 +43,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           <option value="" disabled>Seleccione…</option>
           {school().courses.map((c) => (
             <optgroup key={c.id} label={c.name}>
-              {school().students.filter((x) => x.courseId === c.id).sort((a, b) => a.lastName.localeCompare(b.lastName, "es")).map((x) => (
+              {activeStudents().filter((x) => x.courseId === c.id).sort((a, b) => a.lastName.localeCompare(b.lastName, "es")).map((x) => (
                 <option key={x.id} value={x.id}>{x.lastName}, {x.firstName}</option>
               ))}
             </optgroup>

@@ -1,13 +1,14 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import {
-  fold, IMPORT_COLUMNS, isSensitive, KIND_LABEL, normalizeRut, parseCourseName, parseDate, parseDelimited, parseSubjects,
+  fold, IMPORT_COLUMNS, isSensitive, KIND_LABEL, nextEnrollmentNumber, normalizeRut, parseCourseName, parseDate, parseDelimited, parseSubjects,
   readTable, rolesFromProfile, ROLE_LABEL, sexFrom, uuidv7, type ImportKind, type Role,
 } from "@insedu/domain";
 import { accountByEmail, accountsState, audit, type Account, type ImportPlanRow, type PendingImport } from "./accounts";
 import { createAccount, type Proposal } from "./admin";
 import { school } from "./demo";
 import { profile } from "./health";
+import { enrollmentOf, ensureEnrollments } from "./matricula";
 import { addCourseSubjects, logEvent, repo } from "./store";
 
 /**
@@ -99,6 +100,7 @@ export function planImport(kind: ImportKind, table: string[][], options: Pending
         newCourses.add(parsed.name);
       }
       const existing = studentByRun(v.run!);
+      if (existing?.withdrawnOn) return row("omitir", `Tiene baja del ${existing.withdrawnOn}. Si vuelve, anule la baja en su ficha de matrícula.`);
       if (!existing) return row("crear", course ? course.name : `${parsed.name} (curso nuevo)`);
       const changes: string[] = [];
       if (existing.courseId !== course?.id) changes.push(`curso: ${repo.course(existing.courseId)?.name ?? "—"} → ${parsed.name}`);
@@ -200,6 +202,7 @@ export function applyImport(p: PendingImport, by: string, origin: string): strin
         if (v.fecha_nacimiento) hp.birthDate = parseDate(v.fecha_nacimiento)!;
         if (v.sexo) hp.sex = sexFrom(v.sexo);
       }
+      applyEnrollmentRow(studentByRun(v.run!)!.id, v);
       continue;
     }
 
@@ -254,6 +257,21 @@ export function applyImport(p: PendingImport, by: string, origin: string): strin
   p.result = result;
   audit(by, `Carga masiva de ${KIND_LABEL[p.kind].toLowerCase()}`, `${p.fileName}: ${result}${p.options.sendInvites || p.kind === "estudiantes" ? "" : " · sin enviar invitaciones"}`);
   return result;
+}
+
+/** Copia a la ficha de matrícula lo que traiga el archivo; lo que no viene se conserva. */
+function applyEnrollmentRow(studentId: string, v: Record<string, string>) {
+  const r = enrollmentOf(studentId);
+  if (!r) return;
+  const level = courseByName(v.curso!)?.level ?? r.level;
+  if (level !== r.level) Object.assign(r, { level, number: nextEnrollmentNumber(ensureEnrollments(), level, r.modality) });
+  if (v.fecha_nacimiento) r.birthDate = parseDate(v.fecha_nacimiento)!;
+  if (v.sexo) r.sex = sexFrom(v.sexo);
+  if (v.fecha_matricula) r.enrolledOn = parseDate(v.fecha_matricula)!;
+  if (v.domicilio) r.address = v.domicilio;
+  if (v.apoderado) {
+    r.guardians = [{ name: v.apoderado, phone: v.apoderado_telefono ?? "", email: v.apoderado_correo || undefined, address: v.apoderado_domicilio || v.domicilio || "" }, ...r.guardians.slice(1)];
+  }
 }
 
 function addWard(a: Account, studentId: string) {

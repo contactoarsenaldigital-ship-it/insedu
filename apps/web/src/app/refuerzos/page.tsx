@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LEVELS, METRIC_LABEL, canRedeem, goalProgress, pointRules, type CourseGoal } from "@insedu/domain";
-import { courseById, fullName, school, studentById } from "@/lib/demo";
+import { activeStudents, courseById, fullName, school, studentById } from "@/lib/demo";
 import { fmtDate, fmtDT } from "@/lib/format";
 import { rewardsFor, rewardsState, summary } from "@/lib/rewards";
 import { getSession } from "@/lib/session";
@@ -15,7 +15,7 @@ const STATUS_TAG = { pendiente: "media", aprobado: "ok", entregado: "ok", rechaz
 
 function progressOf(goal: CourseGoal) {
   const s = school();
-  const ids = new Set(s.students.filter((x) => x.courseId === goal.courseId).map((x) => x.id));
+  const ids = new Set(activeStudents().filter((x) => x.courseId === goal.courseId).map((x) => x.id));
   return goalProgress(goal, {
     attendance: s.attendance.filter((a) => ids.has(a.studentId)),
     positives: s.conduct.filter((c) => ids.has(c.studentId) && c.kind !== "negative"),
@@ -199,14 +199,14 @@ function badgeLabel(b: string) {
 
 function HeadTeacherRewards({ courseIds, name }: { courseIds: string[]; name: string }) {
   const state = rewardsState();
-  const studentsIn = new Set(school().students.filter((s) => courseIds.includes(s.courseId)).map((s) => s.id));
+  const studentsIn = new Set(activeStudents().filter((s) => courseIds.includes(s.courseId)).map((s) => s.id));
   const requests = state.redemptions.filter((r) => studentsIn.has(r.studentId)).sort((a, b) => b.at.localeCompare(a.at));
   const pending = requests.filter((r) => r.status === "pendiente");
   const approved = requests.filter((r) => r.status === "aprobado");
   const courseId = courseIds[0]!;
   const course = courseById(courseId)!;
-  const ranking = school()
-    .students.filter((s) => s.courseId === courseId)
+  const ranking = activeStudents()
+    .filter((s) => s.courseId === courseId)
     .map((s) => ({ s, sum: summary(s.id) }))
     .sort((a, b) => b.sum.earned - a.sum.earned);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(new Date());

@@ -1,6 +1,6 @@
 import "server-only";
 import { canMessage, deliveryWindow, uuidv7, type Participant } from "@insedu/domain";
-import { school } from "./demo";
+import { activeStudents, school } from "./demo";
 import type { Person } from "./repository";
 import { settings } from "./accounts";
 import { allStaff, findPerson, guardianOf, repo } from "./store";
@@ -99,7 +99,7 @@ export function recipientsFor(me: Person): Person[] {
   }
   // Personal: otros funcionarios + apoderados de sus cursos.
   const courses = me.roles.some((r) => r === "inspector" || r === "director") ? school().courses.map((c) => c.id) : teacherCourses(me.id);
-  const guardians = school().students.filter((s) => courses.includes(s.courseId)).map((s) => guardianOf(s.id)!);
+  const guardians = activeStudents().filter((s) => courses.includes(s.courseId)).map((s) => guardianOf(s.id)!);
   return [...allStaff().filter((p) => p.id !== me.id), ...guardians].filter((p) => allowed(me, p).allow);
 }
 
@@ -156,15 +156,15 @@ export function announcementsFor(me: Person) {
  * al teléfono: eso llega en el piloto, cuando existan contactos reales.
  */
 export function deliveryOf(courseId: string | null) {
-  const n = school().students.filter((s) => courseId === null || s.courseId === courseId).length; // un apoderado por estudiante
+  const n = activeStudents().filter((s) => courseId === null || s.courseId === courseId).length; // un apoderado por estudiante
   const scope = courseId ? school().courses.find((c) => c.id === courseId)?.name ?? "el curso" : "todo el establecimiento";
   return { text: `Lo verán ${n} apoderados y ${n} estudiantes de ${scope} en INSEDU, en Comunicación → Comunicados` };
 }
 
 /** Apoderados destinatarios de un comunicado (uno por estudiante). */
 export function audienceOf(a: Announcement) {
-  return school()
-    .students.filter((s) => a.courseId === null || s.courseId === a.courseId)
+  return activeStudents()
+    .filter((s) => a.courseId === null || s.courseId === a.courseId)
     .map((s) => guardianOf(s.id)!);
 }
 

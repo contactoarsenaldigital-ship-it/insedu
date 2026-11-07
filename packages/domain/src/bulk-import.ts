@@ -21,6 +21,12 @@ export const IMPORT_COLUMNS: Record<ImportKind, ImportColumn[]> = {
     col("curso", "Curso", true, "Por ejemplo 7° Básico A o 1 Medio B", ["curso estudiante", "nivel y letra"], ["7° Básico A", "1° Medio B"]),
     col("fecha_nacimiento", "Fecha de nacimiento", false, "DD-MM-AAAA o AAAA-MM-DD", ["fecha nacimiento", "nacimiento", "fecha de nacimiento"], ["14-05-2013", "2010-11-02"]),
     col("sexo", "Sexo registral", false, "F o M", ["genero", "sexo registral"], ["F", "M"]),
+    col("fecha_matricula", "Fecha de matrícula", false, "DD-MM-AAAA o AAAA-MM-DD", ["fecha de matricula", "matricula"], ["01-03-2027", "01-03-2027"]),
+    col("domicilio", "Domicilio", false, "", ["direccion", "domicilio estudiante"], ["Los Olmos 123, Maipú", "Las Rosas 45, Ñuñoa"]),
+    col("apoderado", "Apoderado", false, "Nombre y apellidos", ["nombre apoderado", "apoderado titular"], ["Ana Rojas Vidal", "Luis Pérez Mena"]),
+    col("apoderado_telefono", "Teléfono del apoderado", false, "", ["telefono apoderado", "fono apoderado", "celular apoderado"], ["+56 9 8765 4321", "+56 9 1234 5678"]),
+    col("apoderado_correo", "Correo del apoderado", false, "", ["email apoderado", "correo apoderado"], ["ana.rojas@correo.cl", ""]),
+    col("apoderado_domicilio", "Domicilio del apoderado", false, "Si se omite, se usa el del estudiante", ["direccion apoderado", "domicilio apoderado"], ["", ""]),
   ],
   funcionarios: [
     col("run", "RUN", true, "Con o sin puntos y guion", ["rut"], ["12.345.678-5", "13.579.246-2"]),
@@ -154,6 +160,8 @@ export function readTable(kind: ImportKind, table: string[][]): ImportTable {
     if (values.curso && !parseCourseName(values.curso)) issues.push("Curso no reconocido (ejemplo: 7° Básico A)");
     if (values.jefatura && !parseCourseName(values.jefatura)) issues.push("Curso de jefatura no reconocido");
     if (values.fecha_nacimiento && !parseDate(values.fecha_nacimiento)) issues.push("Fecha de nacimiento no válida");
+    if (values.fecha_matricula && !parseDate(values.fecha_matricula)) issues.push("Fecha de matrícula no válida");
+    if (values.apoderado_correo && !EMAIL_PATTERN.test(values.apoderado_correo)) issues.push("Correo del apoderado no válido");
     if (values.sexo && !sexFrom(values.sexo)) issues.push("Sexo: use F o M");
     if (values.perfil) {
       const unknown = values.perfil.split(/[,/;]/).map((p) => p.trim()).filter((p) => p && !(fold(p) in STAFF_ROLE_ALIASES));

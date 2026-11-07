@@ -1,7 +1,7 @@
 import "server-only";
 import { evaluateRisk, histogram, indicatorsByPeriod, periodsOf, RISK_RULES, type Course, type Student, type StudentRisk } from "@insedu/domain";
 import { settings } from "./accounts";
-import { school } from "./demo";
+import { activeStudents, school } from "./demo";
 import { nutritionOf } from "./health";
 import type { Session } from "./session";
 import { vault } from "./vault";
@@ -45,7 +45,7 @@ export function riskboard() {
   const health = by(s.health);
   const courses = new Map(s.courses.map((c) => [c.id, c]));
 
-  const rows: StudentRow[] = s.students.map((student) => {
+  const rows: StudentRow[] = activeStudents().map((student) => {
     const indicators = indicatorsByPeriod(periods, {
       grades: grades.get(student.id) ?? [],
       conduct: conduct.get(student.id) ?? [],

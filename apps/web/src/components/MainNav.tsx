@@ -37,6 +37,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Gestión",
     items: [
+      { href: "/matricula", label: "Matrícula", roles: ["school_admin", "director"] },
       { href: "/configuracion", label: "Configuración", roles: ["school_admin", "director"] },
       { href: "/informatica", label: "Informática", roles: ["school_admin", "director"] },
       { href: "/demo", label: "Demo", roles: ["school_admin", "director"] },

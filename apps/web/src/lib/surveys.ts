@@ -1,6 +1,6 @@
 import "server-only";
 import { mulberry32, SOCIOMETRIC_QUESTIONS, uuidv7, type Answers, type Question, type Role } from "@insedu/domain";
-import { school } from "./demo";
+import { activeStudents, school } from "./demo";
 import type { Person } from "./repository";
 import { STAFF } from "./store";
 
@@ -103,7 +103,7 @@ export function eligibleCount(s: Survey): number {
 
 export function classmatesOf(studentId: string) {
   const courseId = school().students.find((x) => x.id === studentId)?.courseId;
-  return school().students.filter((x) => x.courseId === courseId && x.id !== studentId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es"));
+  return activeStudents().filter((x) => x.courseId === courseId && x.id !== studentId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es"));
 }
 
 export function createSurvey(s: Omit<Survey, "id" | "createdAt" | "status">): Survey {
@@ -195,7 +195,7 @@ function generalAnswers(questions: Question[], rnd: () => number, texts = COMMEN
 
 /** Quiénes pueden responder la encuesta en el colegio ficticio. */
 export function eligibleIds(s: Survey): string[] {
-  const students = school().students.filter((x) => s.courseId === null || x.courseId === s.courseId).map((x) => x.id);
+  const students = activeStudents().filter((x) => s.courseId === null || x.courseId === s.courseId).map((x) => x.id);
   if (s.audience === "estudiantes") return students;
   if (s.audience === "apoderados") return students.map((id) => `guardian-of-${id}`);
   return STAFF.map((p) => p.id);

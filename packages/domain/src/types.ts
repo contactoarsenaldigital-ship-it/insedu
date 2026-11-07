@@ -43,6 +43,8 @@ export type Student = {
   lastName: string;
   courseId: string;
   photoUrl?: string;
+  /** Fecha de baja en el registro de matrícula: sale de las listas activas y conserva su historia. */
+  withdrawnOn?: string;
 };
 
 export type Course = {

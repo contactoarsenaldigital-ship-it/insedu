@@ -1,6 +1,7 @@
 import "server-only";
 import { can, formatRut, maskRut, weightedAverage, type Alert, type CellValue, type LessonStatus, type Sheet, type SheetColumn, type Student } from "@insedu/domain";
 import { reportFor, school, studentById } from "./demo";
+import { enrollmentSheet } from "./matricula";
 import type { Session } from "./session";
 import { repo } from "./store";
 
@@ -67,6 +68,12 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  matricula: {
+    label: "Registro de matrícula",
+    allowed: leads,
+    build: ({ courseId }) => enrollmentSheet(courseId),
+  },
+
   notas: {
     label: "Calificaciones",
     allowed: readsSubject,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { analyzeSociogram, ATTENTION, SCALE_LABELS, STATUS_LABEL, STRONG_AUTH_WINDOW_MS, summarize, type SociometricStatus } from "@insedu/domain";
 import { Sociogram, STATUS_COLOR } from "@/components/Sociogram";
-import { courseById, school } from "@/lib/demo";
+import { activeStudents, courseById, school } from "@/lib/demo";
 import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 import { findPerson } from "@/lib/store";
@@ -98,7 +98,7 @@ function SociometricResults({ survey, fresh, showNegative }: { survey: Survey; f
       </section>
     );
   }
-  const students = school().students.filter((x) => x.courseId === survey.courseId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es"));
+  const students = activeStudents().filter((x) => x.courseId === survey.courseId).sort((a, b) => a.lastName.localeCompare(b.lastName, "es"));
   const result = analyzeSociogram(students.map((x) => x.id), responsesOf(survey.id), survey.questions);
   const labels = Object.fromEntries(students.map((x) => [x.id, `${x.firstName} ${x.lastName[0]}.`]));
   const fullName = Object.fromEntries(students.map((x) => [x.id, `${x.firstName} ${x.lastName}`]));

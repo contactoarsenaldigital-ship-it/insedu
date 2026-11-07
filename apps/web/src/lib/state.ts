@@ -54,7 +54,7 @@ function mainCollections(): Collection[] {
       set: (items) => items[0] && Object.assign(G.__insedu_school, items[0]),
     },
     ...["courses", "students", "attendance", "grades", "conduct", "health"].map((f) => arrayOf(`school.${f}`, school, f)),
-    ...["subjects", "evaluations", "lessons", "corrections", "logbook"].map((f) => arrayOf(`libro.${f}`, store, f)),
+    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments"].map((f) => arrayOf(`libro.${f}`, store, f)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
     ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes", "imports"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
@@ -71,7 +71,7 @@ function mainCollections(): Collection[] {
 
 function resetMain() {
   G.__insedu_school = emptySchool();
-  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [] };
+  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
   G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [], imports: [] };

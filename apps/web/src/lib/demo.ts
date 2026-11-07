@@ -22,6 +22,9 @@ export function school(): SyntheticSchool {
   return g.__insedu_school;
 }
 
+/** Estudiantes con matrícula vigente: las bajas conservan su historia, pero no aparecen en las listas. */
+export const activeStudents = () => school().students.filter((s) => !s.withdrawnOn);
+
 export function studentById(id: string) {
   return school().students.find((s) => s.id === id);
 }
@@ -31,7 +34,7 @@ export function courseById(id: string) {
 }
 
 export function reportFor(courseId: string) {
-  return courseReport(school(), courseId);
+  return courseReport({ ...school(), students: activeStudents() }, courseId);
 }
 
 export const fullName = (s: { firstName: string; lastName: string }) => `${s.firstName} ${s.lastName}`;

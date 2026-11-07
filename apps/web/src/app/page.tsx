@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { school } from "@/lib/demo";
+import { activeStudents, school } from "@/lib/demo";
 import { readState } from "@/lib/state";
 import { Icon, type IconName } from "@/components/Icon";
 import { HeroVideo } from "@/components/HeroVideo";
@@ -65,7 +65,7 @@ export default async function Home() {
             <a href="#recorrido" className="btn secondary">Ver por perfil</a>
           </div>
           <div className="stats" aria-label="Colegio ficticio de la demostración">
-            <div><strong>{s.students.length}</strong><span>estudiantes ficticios</span></div>
+            <div><strong>{activeStudents().length}</strong><span>estudiantes ficticios</span></div>
             <div><strong>{s.courses.length}</strong><span>cursos</span></div>
             <div><strong>3</strong><span>dimensiones: académica, salud y convivencia</span></div>
             <div><strong>1</strong><span>solo registro para el docente</span></div>
