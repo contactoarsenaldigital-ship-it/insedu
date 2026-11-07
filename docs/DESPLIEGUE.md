@@ -68,6 +68,7 @@ postgresql://postgres.abcdefghijk:SU_CLAVE@aws-0-sa-east-1.pooler.supabase.com:6
 | `AI_TIER` | `free` |
 | `GEMINI_API_KEY` | Su API key de Google AI Studio (opcional: sin ella el Copiloto funciona en modo demostración) |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` (o `gemini-3.8-flash`, más capaz; Google limita los modelos 2.5 a cuentas que ya los usaban) |
+| `GEMINI_FALLBACK_MODELS` | Opcional. Modelos de respaldo separados por coma (por defecto `gemini-3.1-flash-lite,gemini-3.8-flash`) |
 | `AI_DAILY_LIMIT` | `100` (opcional: tope diario de solicitudes al Copiloto, sumando todos los usuarios) |
 
    Si no tiene `openssl`, en PowerShell puede generar cada llave (sirve para `VAULT_MASTER_KEY` y para

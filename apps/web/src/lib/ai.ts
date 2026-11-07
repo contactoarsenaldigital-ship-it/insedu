@@ -6,11 +6,14 @@ import { settings } from "./accounts";
 let gateway: AiGateway | null = null;
 let config: GatewayConfig | null = null;
 
+/** Respaldo si el modelo principal falla: GEMINI_FALLBACK_MODELS, separados por coma. */
+const fallbackModels = () => (process.env.GEMINI_FALLBACK_MODELS ?? "gemini-3.1-flash-lite,gemini-3.8-flash").split(",").map((m) => m.trim()).filter(Boolean);
+
 /** Gateway único por instancia. La API key solo existe en variables de entorno del servidor. */
 export function aiGateway(): AiGateway {
   if (!gateway || !config) {
     const key = process.env.GEMINI_API_KEY;
-    const provider = key ? new GeminiProvider(key, process.env.GEMINI_MODEL || "gemini-3.5-flash-lite") : new EchoProvider();
+    const provider = key ? new GeminiProvider(key, process.env.GEMINI_MODEL || "gemini-3.5-flash-lite", { fallbacks: fallbackModels() }) : new EchoProvider();
     config = {
       tier: (process.env.AI_TIER as AiTier) || "free",
       dataMode: (process.env.INSEDU_DATA_MODE as DataMode) || "synthetic",

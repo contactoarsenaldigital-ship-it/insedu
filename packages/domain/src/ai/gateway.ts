@@ -48,6 +48,29 @@ export class AiBlockedError extends Error {
   }
 }
 
+export type AiFailureKind = "sobrecarga" | "cuota" | "credencial" | "modelo" | "tiempo" | "sin_contenido" | "otro";
+
+/** Falla del proveedor de IA. El detalle y los intentos van al registro, nunca a la pantalla. */
+export class AiProviderError extends Error {
+  attempts: string[] = [];
+  constructor(public readonly kind: AiFailureKind, public readonly status: number | null, detail: string) {
+    super(detail);
+  }
+}
+
+const FAILURE_MESSAGE: Record<AiFailureKind, string> = {
+  sobrecarga: "El servicio de IA de Google está sobrecargado. Intente nuevamente en unos minutos.",
+  cuota: "Se agotó la cuota disponible del servicio de IA. Intente más tarde o pida a administración revisar el plan de Google.",
+  credencial: "El servicio de IA rechazó la credencial del sistema. Avise a administración: hay que revisar la API key.",
+  modelo: "El modelo de IA configurado no está disponible. Avise a administración.",
+  tiempo: "El servicio de IA tardó demasiado en responder. Intente nuevamente o pida un material más breve.",
+  sin_contenido: "El servicio de IA no entregó contenido para esta solicitud. Intente reformular el objetivo.",
+  otro: "El servicio de IA no respondió. Intente nuevamente en unos minutos.",
+};
+
+/** Mensaje para la persona según lo que falló. */
+export const aiFailureMessage = (e: unknown) => FAILURE_MESSAGE[e instanceof AiProviderError ? e.kind : "otro"];
+
 const RUT_RE = /\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b/;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]+/;
 const PHONE_RE = /(\+?56\s?)?9\s?\d{4}\s?\d{4}/;

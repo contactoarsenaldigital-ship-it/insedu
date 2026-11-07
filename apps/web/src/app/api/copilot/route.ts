@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { AiBlockedError, buildCopilotRequest, type CopilotInput } from "@insedu/domain";
+import { AiBlockedError, aiFailureMessage, AiProviderError, buildCopilotRequest, type CopilotInput } from "@insedu/domain";
 import { aiGateway } from "@/lib/ai";
 import { fullName, school } from "@/lib/demo";
 import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
+
+// Da tiempo a los reintentos y modelos de respaldo (hasta 55 s, ver GeminiProvider).
+export const maxDuration = 60;
 
 const KINDS: CopilotInput["kind"][] = ["guia", "prueba", "rubrica", "planificacion"];
 
@@ -42,6 +45,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ draft: out.text, model: out.model, provider: out.provider, promptVersion: built.promptVersion });
   } catch (e) {
     if (e instanceof AiBlockedError) return NextResponse.json({ error: e.message, code: e.code }, { status: 422 });
-    return NextResponse.json({ error: "El servicio de IA no respondió. Intente nuevamente en unos minutos." }, { status: 503 });
+    // Solo la causa técnica: nunca el contenido de la solicitud.
+    if (e instanceof AiProviderError) console.error("Copiloto: falla de IA", { kind: e.kind, status: e.status, detail: e.message, attempts: e.attempts });
+    else console.error("Copiloto: error inesperado", e);
+    return NextResponse.json({ error: aiFailureMessage(e) }, { status: 503 });
   }
 }
