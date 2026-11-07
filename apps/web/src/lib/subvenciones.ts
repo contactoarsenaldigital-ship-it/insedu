@@ -1,9 +1,10 @@
 import "server-only";
 import {
-  buildSubsidySheet, CORRECTION_KIND_LABEL, DAY_EVENT_LABEL, declarationDiff, formatRut, parseRut, subsidySnapshot,
+  buildSubsidySheet, secondHourEnd, CORRECTION_KIND_LABEL, DAY_EVENT_LABEL, declarationDiff, formatRut, parseRut, subsidySnapshot,
   type CellValue, type Sheet, type SheetColumn, type SubsidyCell, type SubsidySheet, type SubsidyStudent,
 } from "@insedu/domain";
 import { courseById, fullName, school } from "./demo";
+import { bells } from "./horario";
 import { ensureEnrollments } from "./matricula";
 import type { Session } from "./session";
 import { findPerson, repo, subsidyState } from "./store";
@@ -58,6 +59,7 @@ export function courseSheet(courseId: string, month: string): SubsidySheet {
     corrections: corrections.filter((c) => c.courseId === courseId && c.date.startsWith(month)),
     events: events.filter((e) => e.date.startsWith(month) && (!e.courseId || e.courseId === courseId)),
     courseStart: courseById(courseId)?.startTime ?? "08:00",
+    secondHourEnd: bells().configured ? secondHourEnd(bells().bells) : undefined,
     timeZone: s.timeZone,
   });
 }

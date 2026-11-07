@@ -17,6 +17,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: "/panel/profesor-jefe", label: "Paneles", roles: [...STAFF_TEACH, "inspector", "director", "school_admin"] },
       { href: "/panel/apoderado", label: "Resumen semanal", roles: ["guardian_academic"] },
       { href: "/pie", label: "Libro PIE", roles: [...STAFF_TEACH, "pie_professional", "psychologist", "counselor", "director", "school_admin"] },
+      { href: "/horario", label: "Horario", roles: "all" },
       { href: "/copiloto", label: "Copiloto", roles: STAFF_TEACH },
       { href: "/escanear", label: "Escanear", roles: [...STAFF_TEACH, "inspector", "gatekeeper"] },
     ],

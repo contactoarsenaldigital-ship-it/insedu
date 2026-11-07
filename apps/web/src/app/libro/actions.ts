@@ -21,6 +21,7 @@ import { getSession, type Session } from "@/lib/session";
 import { award, awardLessonArrival, awardOnce } from "@/lib/rewards";
 import { logEvent, repo } from "@/lib/store";
 import { verifySignature } from "@/lib/verifier";
+import { signatureWarning } from "@/lib/horario";
 
 /**
  * Acciones del libro de clases. Cada una:
@@ -85,7 +86,8 @@ async function createLessonImpl(form: FormData) {
     const signed = await verifySignature(session, code);
     if (!signed.ok) back(subjectId, "clases", { error: `Clase guardada como borrador, sin firma. ${signed.error}` });
     applySignature(lesson.id, courseId, signed.signature);
-    done(subjectId, "clases", "Clase registrada y firmada.");
+    const warn = signatureWarning(subjectId, lesson.date, lesson.block, signed.signature.at);
+    done(subjectId, "clases", warn ? `Clase registrada y firmada. Atención: ${warn}` : "Clase registrada y firmada.");
   }
   done(subjectId, "clases", "Clase registrada como borrador. Fírmela para cerrar el registro.");
 }
@@ -106,7 +108,8 @@ async function signLessonImpl(form: FormData) {
   const signed = await verifySignature(session, str(form, "code"));
   if (!signed.ok) back(subjectId, "clases", { error: signed.error });
   applySignature(lesson.id, courseId, signed.signature);
-  done(subjectId, "clases", "Clase firmada.");
+  const warn = signatureWarning(subjectId, lesson.date, lesson.block, signed.signature.at);
+  done(subjectId, "clases", warn ? `Clase firmada. Atención: ${warn}` : "Clase firmada.");
 }
 
 async function updateLessonAttendanceImpl(form: FormData) {

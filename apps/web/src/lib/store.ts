@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type BellPeriod, type ScheduleSlot, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -118,6 +118,9 @@ type State = {
   /** Entrega de información (ver lib/entregas). */
   docRequests: DocumentRequest[];
   institutionalDocs: InstitutionalDoc[];
+  /** Horario (ver lib/horario). */
+  bells: BellPeriod[];
+  slots: ScheduleSlot[];
 };
 
 export function initStore(): State {
@@ -139,11 +142,19 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export function timetableState() {
+  const st = state();
+  return {
+    get bells() { return (st.bells ??= []); },
+    get slots() { return (st.slots ??= []); },
+  };
+}
 
 export function deliveriesState() {
   const st = state();

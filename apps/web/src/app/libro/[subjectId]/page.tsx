@@ -19,6 +19,7 @@ import type { Subject } from "@/lib/repository";
 import { addConduct, addEvaluation, createLesson, saveGrades, signLesson, updateLessonAttendance } from "../actions";
 import { readState } from "@/lib/state";
 import { DownloadLinks } from "@/components/DownloadLinks";
+import { scheduledBlocks } from "@/lib/horario";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,8 @@ function Lessons({ subject, students, session, canWrite, canCorrect }: { subject
               <div className="field"><label htmlFor="date">Fecha</label><input id="date" name="date" type="date" defaultValue={today()} required /></div>
               <div className="field">
                 <label htmlFor="block">Bloque</label>
-                <select id="block" name="block">{BLOCKS.map((b) => <option key={b}>{b}</option>)}</select>
+                <select id="block" name="block" defaultValue={scheduledBlocks(subject.id, today())[0]}>{[...new Set([...scheduledBlocks(subject.id, today()), ...BLOCKS])].map((b) => <option key={b}>{b}</option>)}</select>
+                {scheduledBlocks(subject.id, today()).length > 0 && <span className="muted">Hoy según el horario: {scheduledBlocks(subject.id, today()).join(", ")}</span>}
               </div>
               <div className="field"><label htmlFor="objective">Objetivo de aprendizaje</label><input id="objective" name="objective" placeholder="OA 3" /></div>
             </div>

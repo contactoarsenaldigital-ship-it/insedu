@@ -59,7 +59,7 @@ export default async function ITPage() {
       <section className="section">
         <h2>Estándar de Datos para la Educación (EDE)</h2>
         <p>Archivo <code>json.zip</code> en el formato que lee el contenedor oficial del Mineduc (<code>edemineduc/etl</code>: comandos <code>parse</code>, <code>insert</code> y <code>check</code>).</p>
-        <p className="notice warn">Primera etapa: establecimiento, cursos, asignaturas, estudiantes, matrícula, número de lista, asistencia diaria y por clase, y suspensiones. Aún faltan horario, evaluaciones, anotaciones, PIE, salidas, entregas y documentos, y el diccionario oficial de códigos.</p>
+        <p className="notice warn">Primera etapa: establecimiento, cursos, asignaturas, estudiantes, matrícula, número de lista, asistencia diaria y por clase, y suspensiones. Incluye el horario de cada asignatura. Aún faltan evaluaciones, anotaciones, PIE, salidas, entregas y documentos, y el diccionario oficial de códigos.</p>
         <ul>{ede.issues.map((i, k) => <li key={k}><span className={`tag ${i.severity === "error" ? "alta" : "media"}`}>{i.severity}</span> {i.message}</li>)}</ul>
         <p className="muted">{Object.entries(ede.counts).map(([t, n]) => `${t}: ${n}`).join(" · ")}</p>
         <a className="btn secondary" href="/api/ede" download>Descargar json.zip</a>

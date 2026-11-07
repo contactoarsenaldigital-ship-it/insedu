@@ -26,6 +26,7 @@ export * from "./exits";
 export * from "./subsidy";
 export * from "./documents";
 export * from "./deliveries";
+export * from "./timetable";
 export * from "./ede/refs";
 export * from "./ede/export";
 export * from "./auth/policy";

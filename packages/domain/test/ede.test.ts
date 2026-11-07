@@ -15,6 +15,7 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
   daily: [{ studentId: "a", date: "2026-10-05", status: "late" }],
   lessons: [{ id: "l1", subjectId: "s1", date: "2026-10-05", attendance: { a: "present" }, signedAt: "2026-10-05T12:00:00Z", signerId: "t1", signatureKey: "123456" }],
   suspensions: [{ id: "x", date: "2026-09-10", reason: "Corte de agua", authorization: "Oficio 45" }],
+  schedule: [{ subjectId: "s1", weekday: 1, period: 2, start: "08:45", end: "09:30" }],
   exportedAt: "2026-11-07T15:00:00Z",
   timeZone: "America/Santiago",
   ...extra,
@@ -34,7 +35,9 @@ describe("EDE", () => {
 
   it("agrupa las tablas como espera el contenedor oficial", () => {
     const { json, counts } = buildEdeJson(input(), allRefs);
-    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Personas", "_ComunidadEducativa", "_Calendarios"]);
+    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
+    expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45", ClassEndingTime: "09:30", ClassPeriod: "Hora 02" });
+    expect(table(json, "_Calendarios", "OrganizationCalendarSession")[0]).toMatchObject({ BeginDate: "2026-10-05", EndDate: "2026-10-05", AttendanceTermIndicator: 1 });
     expect(counts.Organization).toBe(3);
     const persons = table(json, "_Personas", "Person");
     expect(persons[0]).toMatchObject({ FirstName: "Ana", SecondLastName: "Soto", RefSexId: allRefs["sex.female"] });
@@ -60,12 +63,12 @@ describe("EDE", () => {
   });
 
   it("informa lo que falta en vez de inventarlo", () => {
-    const { issues, json } = buildEdeJson(input({ lessons: [{ id: "l1", subjectId: "s1", date: "2026-10-05", attendance: { a: "present" }, signedAt: "2026-10-05T12:00:00Z" }], staff: [{ id: "t1", name: "Carolina Fuentes" }] }), provisionalRefs());
+    const { issues, json } = buildEdeJson(input({ schedule: [], lessons: [{ id: "l1", subjectId: "s1", date: "2026-10-05", attendance: { a: "present" }, signedAt: "2026-10-05T12:00:00Z" }], staff: [{ id: "t1", name: "Carolina Fuentes" }] }), provisionalRefs());
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).toContain("código(s) oficiales");
     expect(text).toContain("sin el código del verificador");
     expect(text).toContain("sin RUN");
-    expect(text).toContain("CourseSectionSchedule");
+    expect(text).toContain("no tienen horario");
     expect(table(json, "_Organizaciones", "Organization")[0]!.RefOrganizationTypeId).toBeNull();
   });
 

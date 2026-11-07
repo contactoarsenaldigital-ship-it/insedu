@@ -7,7 +7,8 @@
  *
  * Etapa 1 (este archivo): establecimiento, cursos y asignaturas; personas y sus identificadores; matrícula y
  * número de lista; asistencia diaria y por clase con la firma del verificador; suspensiones de clases.
- * Pendiente: horario (CourseSectionSchedule), evaluaciones, anotaciones, PIE, salidas, entregas y documentos.
+ * Etapa 2: horario (CourseSectionSchedule) y sesiones del calendario por día de clase.
+ * Pendiente: evaluaciones, anotaciones, PIE, salidas, entregas y documentos.
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
@@ -24,7 +25,9 @@ export type EdeInput = {
   }[];
   staff: { id: string; rut?: string; name: string }[];
   daily: { studentId: string; date: string; status: EdeAttendanceStatus }[];
-  lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string }[];
+  lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
+  /** Horario: una fila por asignatura, día y hora de la jornada. */
+  schedule: { subjectId: string; weekday: 1 | 2 | 3 | 4 | 5; period: number; start: string; end: string }[];
   suspensions: { id: string; date: string; reason: string; authorization: string }[];
   /** Instante de la exportación, ISO. */
   exportedAt: string;
@@ -179,7 +182,28 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   }
   if (unsigned) issues.push({ severity: "aviso", message: `${unsigned} clase(s) sin firmar no se exportan` });
   if (noKey) issues.push({ severity: "error", message: `${noKey} clase(s) firmadas sin el código del verificador: el validador exige la firma en cada registro de asistencia` });
-  if (input.lessons.length) issues.push({ severity: "error", message: "Falta el horario de cada asignatura (CourseSectionSchedule): el validador comprueba que la firma ocurra dentro del bloque" });
+
+  // ── Horario (CourseSectionSchedule) y una sesión de calendario por día de clase firmada ──
+  const DAY = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+  for (const h of input.schedule) {
+    if (!ids.has(`org:section:${h.subjectId}`)) continue;
+    push("CourseSectionSchedule", {
+      CourseSectionScheduleId: id(`css:${h.subjectId}:${h.weekday}:${h.period}`), OrganizationId: id(`org:section:${h.subjectId}`),
+      ClassMeetingDays: DAY[h.weekday]!, ClassBeginningTime: h.start, ClassEndingTime: h.end, ClassPeriod: `Hora ${String(h.period).padStart(2, "0")}`, RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+  }
+  const scheduled = new Set(input.schedule.map((h) => h.subjectId));
+  const signed = input.lessons.filter((l) => l.signedAt);
+  const withoutSchedule = new Set(signed.filter((l) => !scheduled.has(l.subjectId)).map((l) => l.subjectId));
+  if (withoutSchedule.size) issues.push({ severity: "error", message: `${withoutSchedule.size} asignatura(s) con clases firmadas no tienen horario: el validador comprueba que la firma ocurra dentro del bloque` });
+  const outside = signed.filter((l) => scheduled.has(l.subjectId) && l.withinSchedule === false).length;
+  if (outside) issues.push({ severity: "aviso", message: `${outside} clase(s) se firmaron fuera del horario del bloque: el validador no las aceptará` });
+  for (const l of signed) {
+    const calKey = `cal:section:${l.subjectId}`;
+    if (!ids.has(calKey)) push("OrganizationCalendar", { OrganizationCalendarId: id(calKey), OrganizationId: id(`org:section:${l.subjectId}`), CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `Clases ${input.school.year}`.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
+    const sessKey = `sess:${l.subjectId}:${l.date}`;
+    if (!ids.has(sessKey)) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(sessKey), OrganizationCalendarId: id(calKey), BeginDate: l.date, EndDate: l.date, Description: `Clases del ${l.date}`, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+  }
 
   // ── Calendario: año escolar y suspensiones ──
   const calendar = id("cal:year");
@@ -194,7 +218,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     _Organizaciones: ["Organization", "OrganizationIdentifier", "OrganizationRelationship"],
     _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus"],
     _ComunidadEducativa: ["OrganizationPersonRole", "K12StudentEnrollment", "RoleAttendanceEvent"],
-    _Calendarios: ["OrganizationCalendar", "OrganizationCalendarEvent"],
+    _Cursos: ["CourseSectionSchedule"],
+    _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],
   };
   const json: EdeJson = Object.fromEntries(Object.entries(groups).map(([g, ts]) => [g, ts.filter((t) => tables[t]?.length).map((t) => ({ [t]: tables[t]! }))]));
   const counts = Object.fromEntries(Object.entries(tables).map(([t, r]) => [t, r.length]));

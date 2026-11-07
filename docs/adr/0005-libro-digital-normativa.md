@@ -61,8 +61,12 @@ consultando las tablas Ref de la base del contenedor, una vez instalado Docker.
 **Firma:** el validador exige en cada asistencia por clase el código del verificador (`digitalRandomKey`, 6 dígitos). Desde
 ahora la firma guarda ese código; las clases firmadas antes no lo tienen.
 
-**Pendiente:** horario por asignatura (CourseSectionSchedule, que el validador cruza con la hora de la firma), sesiones de
-calendario, evaluaciones (Assessment…, LearnerActivity), anotaciones (Incident…), PIE, salidas, entregas, documentos en
+**Segunda etapa (hecha):** horario por asignatura (CourseSectionSchedule: días como `Lunes`…`Viernes`, horas `HH:MM`,
+`ClassPeriod` «Hora 02») y una sesión de calendario por asignatura y día de clase firmada. El libro avisa si se firma fuera
+del bloque, porque el validador exige firmar durante la clase. El control de subvenciones usa el término de la segunda hora
+de la jornada configurada.
+
+**Pendiente:** evaluaciones (Assessment…, LearnerActivity), anotaciones (Incident…), PIE, salidas, entregas, documentos en
 base64 (Document), apoderados (PersonRelationship), código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula

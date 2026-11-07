@@ -3,7 +3,8 @@ import { buildEdeJson, provisionalRefs, subsidyList, type EdeInput, type EdeRefs
 import { accountById } from "./accounts";
 import { fullName, school } from "./demo";
 import { ensureEnrollments } from "./matricula";
-import { allStaff, repo, subsidyState } from "./store";
+import { allStaff, repo, subsidyState, timetableState } from "./store";
+import { bells, signatureWarning } from "./horario";
 
 /**
  * Exportación al EDE con los datos del establecimiento. Mientras no se genere el diccionario oficial de
@@ -28,6 +29,7 @@ export function edeInput(): EdeInput {
     });
   });
   const lessons = repo.subjects().flatMap((x) => repo.lessonsOf(x.id));
+  const day = bells().bells;
   return {
     school: { rbd: s.rbd, name: s.name, year },
     courses: s.courses.map((c) => ({ id: c.id, name: c.name, headTeacherId: c.headTeacherId || undefined })),
@@ -35,7 +37,14 @@ export function edeInput(): EdeInput {
     students,
     staff: allStaff().map((p) => ({ id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : undefined })),
     daily: s.attendance.map((a) => ({ studentId: a.studentId, date: a.date, status: a.status })),
-    lessons: lessons.map((l) => ({ id: l.id, subjectId: l.subjectId, date: l.date, attendance: l.attendance, signedAt: l.signature?.at ?? l.signedAt, signerId: l.signature?.by, signatureKey: l.signature?.key })),
+    lessons: lessons.map((l) => {
+      const signedAt = l.signature?.at ?? l.signedAt;
+      return { id: l.id, subjectId: l.subjectId, date: l.date, attendance: l.attendance, signedAt, signerId: l.signature?.by, signatureKey: l.signature?.key, withinSchedule: signedAt ? !signatureWarning(l.subjectId, l.date, l.block, signedAt) : undefined };
+    }),
+    schedule: timetableState().slots.flatMap((x) => {
+      const b = day.find((p) => p.number === x.period);
+      return b ? [{ subjectId: x.subjectId, weekday: x.weekday, period: x.period, start: b.start, end: b.end }] : [];
+    }),
     suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
     exportedAt: new Date().toISOString(),
     timeZone: s.timeZone || "America/Santiago",

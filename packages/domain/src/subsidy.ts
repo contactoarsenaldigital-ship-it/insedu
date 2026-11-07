@@ -95,6 +95,8 @@ export type SubsidyInput = {
   corrections: SubsidyCorrection[];
   events: SchoolDayEvent[];
   courseStart: string;
+  /** Término de la segunda hora según la jornada configurada (HH:MM). Sin él: inicio más 90 minutos. */
+  secondHourEnd?: string;
   timeZone: string;
 };
 
@@ -176,7 +178,7 @@ export function buildSubsidySheet(input: SubsidyInput): SubsidySheet {
   const markFromDaily = (d?: SubsidyDaily): { mark?: SubsidyMark; lateEntry: boolean } => {
     if (!d) return { lateEntry: false };
     if (d.status === "absent" || d.status === "justified") return { mark: "absent", lateEntry: false };
-    if (d.status === "late" && d.arrivedAt && toMinutes(localTime(d.arrivedAt, input.timeZone)) > toMinutes(input.courseStart) + SECOND_HOUR_END_MINUTES) return { mark: "absent", lateEntry: true };
+    if (d.status === "late" && d.arrivedAt && toMinutes(localTime(d.arrivedAt, input.timeZone)) > (input.secondHourEnd ? toMinutes(input.secondHourEnd) : toMinutes(input.courseStart) + SECOND_HOUR_END_MINUTES)) return { mark: "absent", lateEntry: true };
     return { mark: "present", lateEntry: false };
   };
 
