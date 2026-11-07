@@ -5,6 +5,7 @@ import { enrollmentSheet } from "./matricula";
 import { pieSheets } from "./pie";
 import { exitSheets } from "./salidas";
 import { findPerson, logbook, repo } from "./store";
+import { subsidySheets } from "./subvenciones";
 
 /**
  * Respaldo del libro de clases para fiscalización: todo lo registrado, incluida la bitácora, en una
@@ -88,6 +89,7 @@ export function libroSheets(courseId?: string): Sheet[] {
       }),
     },
     ...pieSheets(courseId),
+    ...subsidySheets(courseId),
     ...exitSheets(courseId),
     {
       name: "Correcciones",

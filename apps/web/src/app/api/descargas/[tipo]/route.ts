@@ -22,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ tipo: st
     return NextResponse.redirect(new URL(`/ingresar?next=${encodeURIComponent(back)}`, url));
   }
 
-  const p = { subjectId: url.searchParams.get("asignatura") ?? undefined, courseId: url.searchParams.get("curso") ?? undefined };
+  const p = { subjectId: url.searchParams.get("asignatura") ?? undefined, courseId: url.searchParams.get("curso") ?? undefined, month: url.searchParams.get("mes") ?? undefined };
   if (!def.allowed(session, p)) return NextResponse.json({ error: "Su perfil no tiene acceso a esta información." }, { status: 403 });
   const sheet = def.build(p);
   if (!sheet) return NextResponse.json({ error: "No se encontró la información solicitada." }, { status: 404 });

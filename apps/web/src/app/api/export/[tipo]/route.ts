@@ -9,6 +9,7 @@ import {
 import { school } from "@/lib/demo";
 import { canExportMineduc, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
+import { isMonth, sigeCsv } from "@/lib/subvenciones";
 
 /** Descarga de archivos para el encargado de informática (Etapa 1: colegio sintético). */
 export async function GET(req: Request, { params }: { params: Promise<{ tipo: string }> }) {
@@ -31,6 +32,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ tipo: st
       return NextResponse.json({ desde: from, hasta: to, filas: rows.length, problemas: checkAttendance(rows, s.schoolDays.filter((d) => d >= from && d <= to)) });
     }
     return file(toDelimited(ATTENDANCE_TEMPLATE, rows), `asistencia_${s.rbd}_${from}_${to}.csv`);
+  }
+
+  if (tipo === "subvenciones") {
+    const month = url.searchParams.get("mes") ?? undefined;
+    if (!isMonth(month)) return NextResponse.json({ error: "Mes inválido" }, { status: 400 });
+    return file(sigeCsv(month), `asistencia_sige_${s.rbd}_${month}.csv`);
   }
 
   if (tipo === "notas" || tipo === "notas-informe") {

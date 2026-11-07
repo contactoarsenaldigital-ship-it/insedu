@@ -4,6 +4,7 @@ import { reportFor, school, studentById } from "./demo";
 import { enrollmentSheet } from "./matricula";
 import { canRegisterExits, exitSheets } from "./salidas";
 import type { Session } from "./session";
+import { canReadSubsidy, isMonth, monthlySheet } from "./subvenciones";
 import { repo } from "./store";
 
 /**
@@ -12,7 +13,7 @@ import { repo } from "./store";
  * verifica en el servidor con la misma matriz de permisos que las pantallas.
  */
 
-export type ExportParams = { subjectId?: string; courseId?: string };
+export type ExportParams = { subjectId?: string; courseId?: string; month?: string };
 
 type ExportDef = {
   label: string;
@@ -69,6 +70,11 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  subvenciones: {
+    label: "Control mensual de asistencia",
+    allowed: (s, p) => !!p.courseId && canReadSubsidy(s, p.courseId),
+    build: ({ courseId, month }) => (courseId && isMonth(month) ? monthlySheet(courseId, month) : null),
+  },
   salidas: {
     label: "Registro de salidas",
     allowed: (s) => canRegisterExits(s),
@@ -243,5 +249,6 @@ export function exportHref(tipo: string, formato: "xlsx" | "csv", p: ExportParam
   const q = new URLSearchParams({ formato });
   if (p.subjectId) q.set("asignatura", p.subjectId);
   if (p.courseId) q.set("curso", p.courseId);
+  if (p.month) q.set("mes", p.month);
   return `/api/descargas/${tipo}?${q}`;
 }

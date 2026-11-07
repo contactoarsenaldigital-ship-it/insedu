@@ -60,6 +60,8 @@ export type EnrollmentRecord = {
   guardians: GuardianContact[];
   condition: EnrollmentCondition;
   resolution?: string;
+  /** Fecha desde la que un ex excedente genera subvención, por reemplazar a un estudiante retirado. */
+  surplusUntil?: string;
   withdrawal?: Withdrawal;
   notes: EnrollmentNote[];
 };

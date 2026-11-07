@@ -33,6 +33,8 @@ export default async function ITPage() {
       <p>Los docentes registran una sola vez en INSEDU. Aquí se generan los archivos para cargar en la plataforma oficial, con un informe de consistencia previo.</p>
       <p className="notice warn">Las plantillas son genéricas y configurables: los formatos oficiales de carga se confirmarán con el colegio piloto antes de la Etapa 2.</p>
 
+      <p className="notice">Para declarar la asistencia use el <a href="/subvenciones">control de subvenciones</a>, que considera la segunda hora, las correcciones, los excedentes y las suspensiones. El archivo de abajo trae la asistencia diaria sin esos ajustes.</p>
+
       <div className="grid section">
         <div className="card">
           <span className="eyebrow">Asistencia diaria · {week[0]} a {week.at(-1)}</span>

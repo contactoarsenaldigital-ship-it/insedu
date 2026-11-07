@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -109,6 +109,10 @@ type State = {
   pickups: AuthorizedPickup[];
   exits: StudentExit[];
   courseExits: CourseExit[];
+  /** Control de subvenciones (ver lib/subvenciones). */
+  subsidyCorrections: SubsidyCorrection[];
+  subsidyEvents: SchoolDayEvent[];
+  subsidyDeclarations: SubsidyDeclaration[];
 };
 
 export function initStore(): State {
@@ -130,11 +134,20 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export function subsidyState() {
+  const st = state();
+  return {
+    get corrections() { return (st.subsidyCorrections ??= []); },
+    get events() { return (st.subsidyEvents ??= []); },
+    get declarations() { return (st.subsidyDeclarations ??= []); },
+  };
+}
 
 export function exitsState() {
   const st = state();

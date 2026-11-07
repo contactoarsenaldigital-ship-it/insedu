@@ -530,3 +530,11 @@ fieldset.plain:disabled .question { opacity: .75; }
 .signature-pad { width: 100%; max-width: 480px; height: auto; aspect-ratio: 3 / 1; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); touch-action: none; cursor: crosshair; }
 .signature-image { background: #fff; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
 .sign-form input[type="time"] { min-height: 36px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; }
+
+/* ───────────── Control de subvenciones ───────────── */
+.subsidy-matrix th, .subsidy-matrix td { padding: 4px 6px; text-align: center; white-space: nowrap; }
+.subsidy-matrix th:nth-child(2), .subsidy-matrix td:nth-child(2) { text-align: left; }
+.subsidy-matrix tfoot th, .subsidy-matrix tfoot td { font-weight: 600; border-top: 2px solid var(--line); }
+.subsidy-flag { background: #fff3c4; color: #151515; }
+.subsidy-fixed { outline: 2px solid var(--line); outline-offset: -3px; font-weight: 600; }
+.subsidy-out td:nth-child(2) { text-decoration: line-through; }

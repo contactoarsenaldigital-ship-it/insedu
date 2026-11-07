@@ -22,7 +22,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Disponible por al menos cinco años | Circular 6.2 | Parcial: reinicio bloqueado con datos reales; falta ambiente productivo con respaldos |
 | Registro de matrícula digital | Circular 5 y 6 | Implementado (`/matricula`), salvo adjuntar documentos escaneados y el formato EDE |
 | Registro de atención de profesionales y PIE | Circular 6.2.f | Implementado (`/pie`), salvo el formato EDE y la atención de profesionales fuera de cursos PIE |
-| Control de subvenciones y declaración en SIGE | Circular 6.2.c | **Pendiente** |
+| Control de subvenciones y declaración en SIGE | Circular 6.2.c | Implementado (`/subvenciones`), salvo el envío al SIGE, adjuntar justificativos, formación dual y el formato EDE |
 | Registro de salidas o retiros | Circular 7 | Implementado (`/salidas`), salvo adjuntar poderes escaneados y el formato EDE |
 | Registro de entrega de documentación | Circular 8 | **Pendiente** |
 
@@ -68,3 +68,15 @@ Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip`
   poder simple escaneado o autorización electrónica: por ahora el poder se anota como referencia.
 - El apoderado autoriza desde su sesión. Una persona no registrada exige RUN y la comunicación del apoderado.
 - Falta confirmar con la Superintendencia si la firma en pantalla basta como «firma de la persona que retira».
+
+## Control de subvenciones
+
+- Se calcula con lo ya registrado. Por estudiante y día vale, en orden: la corrección, la clase que cubre la segunda hora y la asistencia diaria.
+- Si la clase de segunda hora y la asistencia diaria difieren, es un error que impide registrar la declaración hasta corregirlo.
+- Un día sin clase de segunda hora, pero con asistencia diaria completa, se acepta con aviso (Circular b.2 y c.2). **Hay que confirmarlo con la Superintendencia.**
+- Quien llega después de la segunda hora queda ausente hasta registrar un justificativo. El límite es el inicio de jornada más 90 minutos (dos horas de 45): **supuesto a validar con los horarios reales**.
+- Quien fue retirado antes de la segunda hora solo se detecta si la clase de segunda hora lo marca ausente: el control no cruza el registro de salidas.
+- Solo dirección y administración corrigen: su registro hace de visado. Falta confirmar si basta para el formato digital.
+- INSEDU no envía datos al SIGE ni calcula montos. El archivo es una plantilla propia para cotejar, porque no se encontró un formato de carga público.
+- Los días hábiles salen del calendario y de los registros existentes. Falta administrar feriados y calendario escolar: un feriado dentro del calendario aparecería como día sin asistencia.
+- Sin tratamiento propio: formación dual (c.8), cursos combinados (totales generales y por curso) y administración delegada.
