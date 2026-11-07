@@ -21,4 +21,5 @@ export * from "./riskboard";
 export * from "./surveys";
 export * from "./bulk-import";
 export * from "./enrollment";
+export * from "./pie";
 export * from "./auth/policy";

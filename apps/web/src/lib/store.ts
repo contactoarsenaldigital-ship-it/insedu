@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type ConductRecord, type EnrollmentRecord, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type ConductRecord, type EnrollmentRecord, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -37,6 +37,7 @@ export const STAFF: Person[] = [
   { id: "admin-1", name: "Daniela Castro", roles: ["school_admin"], description: "Administración del establecimiento" },
   { id: "nurse-1", name: "Lorena Pizarro", roles: ["nurse"], description: "Enfermería" },
   { id: "psych-1", name: "Andrea Soto", roles: ["psychologist"], description: "Psicóloga" },
+  { id: "pie-1", name: "Natalia Vera", roles: ["pie_professional"], description: "Educadora diferencial · Programa de Integración Escolar" },
   { id: "sg-1", name: "Verónica Díaz", roles: ["safeguarding_lead"], description: "Encargada de Salvaguarda (titular)" },
   { id: "sg-2", name: "Patricio Reyes", roles: ["counselor"], description: "Orientador · suplente formal de Salvaguarda" },
 ];
@@ -100,6 +101,10 @@ type State = {
   logbook: LogbookEvent[];
   /** Registro general de matrícula (ver lib/matricula). */
   enrollments: EnrollmentRecord[];
+  /** Libro PIE (ver lib/pie). */
+  pieStudents: PieStudent[];
+  pieTeam: PieTeamMember[];
+  pieEntries: PieEntry[];
 };
 
 export function initStore(): State {
@@ -121,11 +126,20 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
 const state = (): State => (g.__insedu_store ??= initStore());
+
+export function pieState() {
+  const st = state();
+  return {
+    get students() { return (st.pieStudents ??= []); },
+    get team() { return (st.pieTeam ??= []); },
+    get entries() { return (st.pieEntries ??= []); },
+  };
+}
 
 export const enrollmentRecords = (): EnrollmentRecord[] => (state().enrollments ??= []);
 

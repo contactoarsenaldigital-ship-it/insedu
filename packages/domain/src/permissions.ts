@@ -23,7 +23,7 @@ export type Scope = {
 
 export type Target = { subjectId?: string; courseId?: string };
 
-const STAFF_READ: Role[] = ["director", "school_admin", "inspector", "psychologist", "counselor", "social_worker"];
+const STAFF_READ: Role[] = ["director", "school_admin", "inspector", "psychologist", "counselor", "social_worker", "pie_professional"];
 
 export function can(roles: Role[], action: Action, scope: Scope, target: Target): boolean {
   const teachesSubject = target.subjectId != null && scope.subjectIds.includes(target.subjectId);

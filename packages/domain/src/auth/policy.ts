@@ -55,7 +55,7 @@ export const isSensitive = (roles: Role[]) => roles.some((r) => SENSITIVE_ROLES.
 
 /** Perfiles que administración puede asignar a una cuenta. */
 export const ASSIGNABLE_ROLES: Role[] = [
-  "teacher", "inspector", "gatekeeper", "counselor", "social_worker", "psychologist", "nurse",
+  "teacher", "inspector", "gatekeeper", "counselor", "pie_professional", "social_worker", "psychologist", "nurse",
   "safeguarding_lead", "director", "school_admin", "guardian_academic", "student",
 ];
 

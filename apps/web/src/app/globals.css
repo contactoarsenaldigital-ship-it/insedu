@@ -517,3 +517,10 @@ fieldset.plain:disabled .question { opacity: .75; }
 .enrollment-notes { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .certificate { line-height: 1.7; }
 .signature-line { margin: 72px auto 24px; width: 280px; border-top: 1px solid var(--ink); padding-top: 6px; text-align: center; font-size: .9rem; }
+
+/* ───────────── Libro PIE ───────────── */
+.pie-entry { display: grid; gap: 8px; margin-bottom: 12px; }
+.inline-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.inline-form input { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); font: inherit; }
+.pie-print-entry { margin-bottom: 10px; line-height: 1.5; }
+.pie-register h2 { margin-top: 24px; }

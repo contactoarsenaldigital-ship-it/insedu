@@ -10,6 +10,7 @@ export type Role =
   | "gatekeeper"
   | "psychologist"
   | "counselor"
+  | "pie_professional"
   | "social_worker"
   | "nurse"
   | "safeguarding_lead"
@@ -27,6 +28,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   gatekeeper: "Portería",
   psychologist: "Psicología",
   counselor: "Orientación",
+  pie_professional: "Profesional PIE",
   social_worker: "Trabajo social",
   nurse: "Enfermería",
   safeguarding_lead: "Encargado de Salvaguarda",

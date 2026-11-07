@@ -2,6 +2,7 @@ import "server-only";
 import { formatGrade, formatRut, parseRut, type Sheet } from "@insedu/domain";
 import { fullName, school } from "./demo";
 import { enrollmentSheet } from "./matricula";
+import { pieSheets } from "./pie";
 import { findPerson, logbook, repo } from "./store";
 
 /**
@@ -85,6 +86,7 @@ export function libroSheets(courseId?: string): Sheet[] {
         return st ? [[...st, c.date, c.kind, c.severity ?? "", c.description, nameOf(c.recordedBy)]] : [];
       }),
     },
+    ...pieSheets(courseId),
     {
       name: "Correcciones",
       title: `Correcciones con motivo${scope}`,

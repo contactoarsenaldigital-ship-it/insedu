@@ -44,7 +44,7 @@ export const CONSENT_TEXT =
 
 const SOCIO_ROLES: Role[] = ["psychologist", "counselor", "safeguarding_lead"];
 const GENERAL_ROLES: Role[] = [...SOCIO_ROLES, "director", "school_admin", "head_teacher"];
-const STAFF_ROLES: Role[] = ["teacher", "head_teacher", "inspector", "gatekeeper", "psychologist", "counselor", "social_worker", "nurse", "safeguarding_lead", "director", "school_admin"];
+const STAFF_ROLES: Role[] = ["teacher", "head_teacher", "inspector", "gatekeeper", "psychologist", "counselor", "pie_professional", "social_worker", "nurse", "safeguarding_lead", "director", "school_admin"];
 
 const has = (p: Person, roles: Role[]) => p.roles.some((r) => roles.includes(r));
 

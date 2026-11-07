@@ -21,7 +21,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Versión vigente del estándar de datos (EDE) | Circular 6.1.b | **Pendiente** |
 | Disponible por al menos cinco años | Circular 6.2 | Parcial: reinicio bloqueado con datos reales; falta ambiente productivo con respaldos |
 | Registro de matrícula digital | Circular 5 y 6 | Implementado (`/matricula`), salvo adjuntar documentos escaneados y el formato EDE |
-| Registro de atención de profesionales y PIE | Circular 6.2.f | **Pendiente** |
+| Registro de atención de profesionales y PIE | Circular 6.2.f | Implementado (`/pie`), salvo el formato EDE y la atención de profesionales fuera de cursos PIE |
 | Control de subvenciones y declaración en SIGE | Circular 6.2.c | **Pendiente** |
 | Registro de salidas o retiros | Circular 7 | **Pendiente** |
 | Registro de entrega de documentación | Circular 8 | **Pendiente** |
@@ -52,3 +52,12 @@ Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip`
 - Las resoluciones y constancias se anotan como referencia. La Circular pide escanearlas y cargarlas en el sistema: falta
   almacenamiento de archivos, junto con la declaración al SIGE.
 - El IPE se valida con la misma regla que el RUN: hay que confirmar el formato con un IPE real.
+
+## Libro PIE
+
+- Sigue los ítems de la Circular 6.2.f: equipo de aula y coordinación, planificación, implementación y evaluación, familia y comunidad.
+- No guarda diagnósticos, por resguardo de datos de menores (Ley 21.719): solo si la necesidad es permanente o transitoria.
+- Las horas de apoyo se muestran como dato. No se valida un mínimo: la exigencia depende del régimen y del número de
+  estudiantes, y los manuales disponibles son antiguos. Hay que confirmarla antes de agregar alertas.
+- El formato oficial de 2013 (.doc) no se reprodujo campo a campo: falta compararlo con una educadora diferencial.
+- Expediente del estudiante y Formularios Únicos quedan fuera: requieren almacenamiento de archivos.
