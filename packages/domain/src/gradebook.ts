@@ -113,6 +113,8 @@ export type LessonSignature = {
   /** «mineduc»: verificador oficial. «interno»: solo maqueta, sin validez ante fiscalización. */
   method: "mineduc" | "interno";
   rut?: string;
+  /** Código de 6 dígitos con que se firmó. El EDE lo exige en cada registro de asistencia (digitalRandomKey). */
+  key?: string;
 };
 
 export type LessonDraft = Pick<Lesson, "subjectId" | "courseId" | "date" | "block" | "objective" | "content">;

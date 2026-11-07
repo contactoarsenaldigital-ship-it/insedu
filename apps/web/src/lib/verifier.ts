@@ -20,7 +20,7 @@ export async function verifySignature(session: Session, code: string): Promise<S
   const at = new Date();
   const signature = (method: LessonSignature["method"]): SignResult => ({
     ok: true,
-    signature: { by: session.person.id, at: at.toISOString(), method, rut: account?.rut },
+    signature: { by: session.person.id, at: at.toISOString(), method, rut: account?.rut, key: clean },
   });
 
   if (mode() === "mineduc") {

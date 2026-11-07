@@ -18,7 +18,7 @@ digital es optativo, pero **solo puede usarse con registro de matrícula digital
 | Firma con verificador de identidad | Circular 6.2.b.2 | Implementado (`lib/verifier.ts`). Sin probar contra el servicio real |
 | Registro de cada ingreso, cambio o eliminación, con usuario, fecha, hora y motivo | Circular 6.1.b; ORD 1355 punto 5 | Implementado para el libro (`domain/logbook.ts`) |
 | Toda la información exportable | Circular 6.1.b; ORD 1355 punto 4 | Parcial: planilla completa, aún no en el formato EDE |
-| Versión vigente del estándar de datos (EDE) | Circular 6.1.b | **Pendiente** |
+| Versión vigente del estándar de datos (EDE) | Circular 6.1.b | Primera etapa (`/api/ede`): estructura y tablas centrales; faltan códigos oficiales, horario y los demás registros |
 | Disponible por al menos cinco años | Circular 6.2 | Parcial: reinicio bloqueado con datos reales; falta ambiente productivo con respaldos |
 | Registro de matrícula digital | Circular 5 y 6 | Implementado (`/matricula`), salvo adjuntar documentos escaneados y el formato EDE |
 | Registro de atención de profesionales y PIE | Circular 6.2.f | Implementado (`/pie`), salvo el formato EDE y la atención de profesionales fuera de cursos PIE |
@@ -41,10 +41,29 @@ plazo mayor de cinco años hasta confirmarlo con la Superintendencia.
 - **Modo interno:** en la maqueta se firma con el segundo factor de INSEDU y queda rotulado como
   demostración. No tiene validez ante fiscalización.
 
-## Pendiente del estándar EDE
+## Estándar EDE
 
-Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip` que espera la imagen
-`edemineduc/etl` (`parse`, `insert`, `check`, repositorio `Admin-EDE/DockerEdeCode`) y validar el resultado.
+Fuente: repositorio oficial `Admin-EDE/DockerEdeCode` (planillas `NDS-Reference-v7_1.xlsx` y `listValidationData.xlsx`, y las
+reglas en `validation_functions`). El contenedor `edemineduc/etl` lee un `json.zip` cuyo JSON agrupa las tablas CEDS por
+la columna JSONGroup de la planilla (76 tablas en 10 grupos), lo pasa a una base SQLCipher y aplica unas 100 reglas.
+
+**Primera etapa (hecha):** Organization, OrganizationIdentifier (RBD), OrganizationRelationship, Person, PersonIdentifier
+(RUN o IPE, número de lista y de matrícula), PersonAddress, PersonStatus, OrganizationPersonRole (estudiantes en curso y en
+cada asignatura, profesor jefe y docentes), K12StudentEnrollment, RoleAttendanceEvent (diaria y por clase con la firma),
+OrganizationCalendar y OrganizationCalendarEvent (suspensiones). Fechas con desfase horario.
+
+**Códigos de referencia:** los números válidos están en la base plantilla cifrada del validador. Las reglas a veces los
+fijan (rol 6 = Estudiante; asistencia por clase = 2; estados 1 presente y 4 atrasado) y a veces los buscan por nombre.
+`domain/ede/refs.ts` anota cada código con su búsqueda oficial y su origen. Mientras falte el diccionario oficial, el
+archivo usa códigos provisionales y el informe lo marca como error: **no debe entregarse**. El diccionario se genera
+consultando las tablas Ref de la base del contenedor, una vez instalado Docker.
+
+**Firma:** el validador exige en cada asistencia por clase el código del verificador (`digitalRandomKey`, 6 dígitos). Desde
+ahora la firma guarda ese código; las clases firmadas antes no lo tienen.
+
+**Pendiente:** horario por asignatura (CourseSectionSchedule, que el validador cruza con la hora de la firma), sesiones de
+calendario, evaluaciones (Assessment…, LearnerActivity), anotaciones (Incident…), PIE, salidas, entregas, documentos en
+base64 (Document), apoderados (PersonRelationship), código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula
 

@@ -6,3 +6,4 @@ export * from "./safeguarding/service";
 export * from "./auth/secrets";
 export * from "./logbook";
 export * from "./auth/mineduc-otp";
+export * from "./ede/zip";

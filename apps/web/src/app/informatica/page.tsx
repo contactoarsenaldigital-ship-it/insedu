@@ -2,6 +2,7 @@ import { ATTENDANCE_TEMPLATE, checkAttendance, checkGrades, GRADES_TEMPLATE } fr
 import { redirect } from "next/navigation";
 import { verifyLogbook } from "@insedu/domain/server";
 import { school } from "@/lib/demo";
+import { edeExport } from "@/lib/ede";
 import { findPerson, logbook } from "@/lib/store";
 import { canExportMineduc, getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
@@ -25,6 +26,7 @@ export default async function ITPage() {
   const gradeIssues = checkGrades(s.grades.map((grade) => ({ student: st.get(grade.studentId)!, grade, rbd: s.rbd })));
   const check = verifyLogbook(logbook());
   const events = logbook().slice(-50).reverse();
+  const ede = edeExport();
 
   return (
     <main className="wrap" style={{ maxWidth: 900 }}>
@@ -53,6 +55,15 @@ export default async function ITPage() {
           <a className="btn" href="/api/export/notas">Descargar CSV</a>
         </div>
       </div>
+
+      <section className="section">
+        <h2>Estándar de Datos para la Educación (EDE)</h2>
+        <p>Archivo <code>json.zip</code> en el formato que lee el contenedor oficial del Mineduc (<code>edemineduc/etl</code>: comandos <code>parse</code>, <code>insert</code> y <code>check</code>).</p>
+        <p className="notice warn">Primera etapa: establecimiento, cursos, asignaturas, estudiantes, matrícula, número de lista, asistencia diaria y por clase, y suspensiones. Aún faltan horario, evaluaciones, anotaciones, PIE, salidas, entregas y documentos, y el diccionario oficial de códigos.</p>
+        <ul>{ede.issues.map((i, k) => <li key={k}><span className={`tag ${i.severity === "error" ? "alta" : "media"}`}>{i.severity}</span> {i.message}</li>)}</ul>
+        <p className="muted">{Object.entries(ede.counts).map(([t, n]) => `${t}: ${n}`).join(" · ")}</p>
+        <a className="btn secondary" href="/api/ede" download>Descargar json.zip</a>
+      </section>
 
       <section className="section">
         <h2>Respaldo y trazabilidad del libro de clases</h2>
