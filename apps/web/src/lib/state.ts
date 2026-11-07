@@ -10,6 +10,7 @@ import { seedExits } from "./salidas";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
+import { clearBlobs } from "./documentos";
 import { seedVault, vault } from "./vault";
 
 /**
@@ -27,6 +28,7 @@ import { seedVault, vault } from "./vault";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const G = globalThis as any;
 const TENANT = "00000000-0000-7000-8000-000000000001";
+export const TENANT_ID = TENANT;
 
 function emptySchool(): SyntheticSchool {
   return { tenantId: TENANT, name: "", rbd: "", timeZone: "America/Santiago", courses: [], students: [], attendance: [], grades: [], conduct: [], health: [], schoolDays: [], cutoff: "" };
@@ -56,7 +58,7 @@ function mainCollections(): Collection[] {
       set: (items) => items[0] && Object.assign(G.__insedu_school, items[0]),
     },
     ...["courses", "students", "attendance", "grades", "conduct", "health"].map((f) => arrayOf(`school.${f}`, school, f)),
-    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries", "pickups", "exits", "courseExits", "subsidyCorrections", "subsidyEvents", "subsidyDeclarations"].map((f) => arrayOf(`libro.${f}`, store, f)),
+    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries", "pickups", "exits", "courseExits", "subsidyCorrections", "subsidyEvents", "subsidyDeclarations", "documents"].map((f) => arrayOf(`libro.${f}`, store, f)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
     ...["users", "requests", "challenges", "audit", "outbox", "settings", "demoCodes", "imports"].map((f) => arrayOf(`cuentas.${f}`, accounts, f)),
@@ -73,7 +75,7 @@ function mainCollections(): Collection[] {
 
 function resetMain() {
   G.__insedu_school = emptySchool();
-  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [] };
+  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
   G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [], imports: [] };
@@ -109,7 +111,7 @@ function resetVault() {
   for (const kind of VAULT_COLLECTIONS) vault().store.setAll(kind, []);
 }
 
-type Syncs = { main: StateSync; vault: StateSync };
+type Syncs = { main: StateSync; vault: StateSync; db: SqlPool | null };
 
 function create(): Syncs {
   const mainUrl = process.env.DATABASE_URL;
@@ -120,6 +122,7 @@ function create(): Syncs {
   const mainDb: SqlPool | null = mainUrl ? pgPool(mainUrl) : null;
   const vaultDb: SqlPool | null = vaultUrl ? pgPool(vaultUrl, 2) : null;
   return {
+    db: mainDb,
     main: new StateSync(mainDb, { tenantId: TENANT, collections: mainCollections, seed: seedMain, reset: resetMain }),
     vault: new StateSync(vaultDb, {
       tenantId: TENANT,
@@ -134,6 +137,9 @@ function create(): Syncs {
 }
 
 const syncs = (): Syncs => (G.__insedu_syncs ??= create());
+
+/** Conexión a la base principal, o null en memoria. La usan los documentos adjuntos. */
+export const mainPool = (): SqlPool | null => syncs().db ?? null;
 
 /** Pone el estado de esta instancia al día con la base. Llamar al inicio de cada página. */
 export async function readState() {
@@ -179,6 +185,7 @@ export async function resetDemo() {
   await s.main.exclusive(async () => {
     await s.main.resetDatabase();
     await s.vault.resetDatabase();
+    await clearBlobs();
     await s.main.sync();
     await s.vault.sync();
   });

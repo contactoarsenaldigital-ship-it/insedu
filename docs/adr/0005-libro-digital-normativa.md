@@ -80,3 +80,13 @@ Mapear el modelo de INSEDU a CEDS con la planilla oficial, generar el `json.zip`
 - INSEDU no envía datos al SIGE ni calcula montos. El archivo es una plantilla propia para cotejar, porque no se encontró un formato de carga público.
 - Los días hábiles salen del calendario y de los registros existentes. Falta administrar feriados y calendario escolar: un feriado dentro del calendario aparecería como día sin asistencia.
 - Sin tratamiento propio: formación dual (c.8), cursos combinados (totales generales y por curso) y administración delegada.
+
+## Documentos escaneados
+
+- PDF, JPG o PNG de hasta 4 MB (límite de Vercel: 4,5 MB por solicitud). El tipo se reconoce por el contenido.
+- La ficha del documento vive en el estado; el contenido va cifrado (AES-256-GCM) en `demo.files` y solo se lee al
+  descargar. La huella SHA-256 se comprueba en cada descarga y queda en la bitácora y el respaldo.
+- No se borran: son respaldo ante fiscalización. Cada descarga queda en la bitácora.
+- Se adjuntan a la ficha de matrícula, a cada retiro y a cada corrección del control de subvenciones.
+- El respaldo en Excel lista los documentos con su huella, pero no incluye su contenido.
+- Pendiente: autorizaciones digitales validadas (por ejemplo, firmadas electrónicamente) y documentos del Libro PIE.

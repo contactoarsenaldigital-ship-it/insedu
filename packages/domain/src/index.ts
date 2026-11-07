@@ -24,4 +24,5 @@ export * from "./enrollment";
 export * from "./pie";
 export * from "./exits";
 export * from "./subsidy";
+export * from "./documents";
 export * from "./auth/policy";

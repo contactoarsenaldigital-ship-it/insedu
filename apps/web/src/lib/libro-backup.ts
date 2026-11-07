@@ -4,7 +4,7 @@ import { fullName, school } from "./demo";
 import { enrollmentSheet } from "./matricula";
 import { pieSheets } from "./pie";
 import { exitSheets } from "./salidas";
-import { findPerson, logbook, repo } from "./store";
+import { documentsState, findPerson, logbook, repo } from "./store";
 import { subsidySheets } from "./subvenciones";
 
 /**
@@ -91,6 +91,12 @@ export function libroSheets(courseId?: string): Sheet[] {
     ...pieSheets(courseId),
     ...subsidySheets(courseId),
     ...exitSheets(courseId),
+    {
+      name: "Documentos adjuntos",
+      title: `Documentos escaneados (el contenido se descarga desde INSEDU)${scope}`,
+      columns: [{ header: "Registro" }, { header: "Identificador", width: 40 }, { header: "Curso", width: 14 }, { header: "Documento", width: 34 }, { header: "Archivo", width: 30 }, { header: "Bytes", format: "integer" }, { header: "Huella SHA-256", width: 66 }, { header: "Adjuntó", width: 24 }, { header: "Fecha", width: 20 }],
+      rows: documentsState().filter((d) => !courseId || d.courseId === courseId).map((d) => [d.ownerKind, d.ownerId, d.courseId ? courseName.get(d.courseId) ?? "" : "", d.label, d.fileName, d.size, d.sha256, nameOf(d.by), when(d.at)]),
+    },
     {
       name: "Correcciones",
       title: `Correcciones con motivo${scope}`,

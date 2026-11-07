@@ -8,6 +8,7 @@ import { readState } from "@/lib/state";
 import { findPerson, logbook } from "@/lib/store";
 import { undoWithdrawal, updateEnrollment, withdrawStudent } from "../actions";
 import { EnrollmentFields } from "../EnrollmentFields";
+import { Attachments } from "@/components/Attachments";
 
 export const metadata = { title: "Ficha de matrícula" };
 export const dynamic = "force-dynamic";
@@ -93,6 +94,12 @@ export default async function EnrollmentCard({ params, searchParams }: { params:
           </form>
         </details>
       )}
+
+      <section className="section">
+        <h2>Documentos escaneados</h2>
+        <p className="muted">Resoluciones, constancias de baja y otros respaldos de la ficha. No se borran: si uno está equivocado, adjunte el correcto.</p>
+        <Attachments kind="matricula" ownerId={id} hint="Por ejemplo: constancia de retiro firmada por el apoderado" />
+      </section>
 
       <section className="section">
         <h2>Observaciones</h2>

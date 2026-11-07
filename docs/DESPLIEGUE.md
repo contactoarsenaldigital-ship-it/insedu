@@ -40,7 +40,7 @@ En cada proyecto, abra **SQL Editor**, pegue y ejecute los archivos en este orde
 
 | Proyecto | Archivos |
 | --- | --- |
-| `insedu-main` | `supabase/main/migrations/20261015000100_core.sql`, luego `supabase/main/migrations/20261016000100_demo_state.sql` |
+| `insedu-main` | `supabase/main/migrations/20261015000100_core.sql`, luego `supabase/main/migrations/20261016000100_demo_state.sql`, luego `supabase/main/migrations/20261107000100_demo_files.sql` |
 | `insedu-vault` | `supabase/vault/migrations/20261015000100_vault.sql`, luego `supabase/vault/migrations/20261016000100_demo_state.sql` |
 
 ### Cadenas de conexión
@@ -64,6 +64,7 @@ postgresql://postgres.abcdefghijk:SU_CLAVE@aws-0-sa-east-1.pooler.supabase.com:6
 | `DATABASE_URL` | Cadena del pooler de `insedu-main` |
 | `VAULT_DATABASE_URL` | Cadena del pooler de `insedu-vault` |
 | `VAULT_MASTER_KEY` | Resultado de `openssl rand -base64 32` (guárdelo en un lugar seguro) |
+| `FILES_MASTER_KEY` | Opcional: `openssl rand -base64 32`. Si falta, los documentos se cifran con una llave derivada de `VAULT_MASTER_KEY` |
 | `INSEDU_SESSION_SECRET` | Resultado de `openssl rand -hex 32` |
 | `AI_TIER` | `free` |
 | `LCD_VERIFIER` | Firma del libro: `mineduc` (servicio oficial; por omisión con datos reales) o `interno` (solo maqueta) |

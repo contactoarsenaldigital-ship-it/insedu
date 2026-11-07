@@ -538,3 +538,9 @@ fieldset.plain:disabled .question { opacity: .75; }
 .subsidy-flag { background: #fff3c4; color: #151515; }
 .subsidy-fixed { outline: 2px solid var(--line); outline-offset: -3px; font-weight: 600; }
 .subsidy-out td:nth-child(2) { text-decoration: line-through; }
+
+/* ───────────── Documentos adjuntos ───────────── */
+.attachments { display: grid; gap: 6px; }
+.attach-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.attach-form { display: grid; gap: 4px; margin-top: 8px; max-width: 420px; }
+.attach-form .field { margin-bottom: 4px; }

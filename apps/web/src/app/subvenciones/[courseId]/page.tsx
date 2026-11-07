@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CORRECTION_KIND_LABEL, type SubsidyCell } from "@insedu/domain";
 import { DownloadLinks } from "@/components/DownloadLinks";
+import { Attachments } from "@/components/Attachments";
 import { courseById, studentById, fullName } from "@/lib/demo";
 import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
@@ -120,7 +121,7 @@ export default async function CourseSubsidy({ params, searchParams }: { params: 
         {corrections.length === 0 ? <p className="muted">No hay correcciones en este mes.</p> : (
           <div className="table-scroll">
             <table className="data">
-              <thead><tr><th>Día</th><th>Estudiante</th><th>Queda</th><th>Tipo</th><th>Motivo</th><th>Justificativo</th><th>Responsable</th></tr></thead>
+              <thead><tr><th>Día</th><th>Estudiante</th><th>Queda</th><th>Tipo</th><th>Motivo</th><th>Justificativo</th><th>Responsable</th><th>Escaneado</th></tr></thead>
               <tbody>
                 {corrections.map((c) => {
                   const st = studentById(c.studentId);
@@ -133,6 +134,7 @@ export default async function CourseSubsidy({ params, searchParams }: { params: 
                       <td>{c.reason}</td>
                       <td>{c.document ?? "—"}</td>
                       <td>{findPerson(c.by)?.name ?? c.by}</td>
+                      <td><Attachments kind="subvencion" ownerId={c.id} compact hint="Justificativo escaneado" /></td>
                     </tr>
                   );
                 })}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatRut, parseRut } from "@insedu/domain";
 import { SignaturePad } from "@/components/SignaturePad";
+import { Attachments } from "@/components/Attachments";
 import { courseById, fullName, studentById } from "@/lib/demo";
 import { canRegisterExits, canSeeStudentExits, exitsOf, exitsToday, nowTime, pickupsOf, wardsOf } from "@/lib/salidas";
 import { getSession } from "@/lib/session";
@@ -129,6 +130,7 @@ export default async function StudentExits({ params, searchParams }: { params: P
               ? (write ? <img src={e.signature} alt={`Firma de ${e.pickupName}`} width={240} height={80} className="signature-image" /> : <span className="muted">Con firma registrada</span>)
               : <span className="muted">Poder simple: {e.paperEvidence}</span>}
             {!isGuardian && <span className="muted">Registró {findPerson(e.by)?.name ?? e.by}</span>}
+            {write && <Attachments kind="salida" ownerId={e.id} compact hint="Por ejemplo: poder simple escaneado" />}
             {write && !e.returnTime && (
               <form action={registerReturn} className="sign-form">
                 <input type="hidden" name="exitId" value={e.id} />
