@@ -12,7 +12,11 @@ import {
   rewardRef,
   validateLesson,
   validateReason,
+  evaluationSignIssues,
+  measureIssues,
+  uuidv7,
   type Action,
+  type DisciplinaryMeasureType,
   type ConductKind,
   type LessonSignature,
   type LessonStatus,
@@ -234,7 +238,10 @@ async function saveGradesImpl(form: FormData) {
   }
 
   if (!toCreate.length && !toCorrect.length) back(subjectId, "notas", { error: "No hubo cambios." }, extra);
-  done(subjectId, "notas", `${toCreate.length} nota(s) nueva(s) y ${toCorrect.length} corrección(es) registradas.`);
+  // Vuelve a la misma evaluación para que el docente pueda firmarla.
+  revalidatePath(`/libro/${subjectId}`);
+  revalidatePath("/panel/[rol]", "page");
+  back(subjectId, "notas", { ok: `${toCreate.length} nota(s) nueva(s) y ${toCorrect.length} corrección(es) registradas.${ev.signature ? "" : " Firme la evaluación para cerrarla."}` }, extra);
 }
 
 // ───────────────────────────── Anotaciones ─────────────────────────────
@@ -261,6 +268,7 @@ async function addConductImpl(form: FormData) {
     severity: kind === "negative" ? severity : undefined,
     description,
     recordedBy: session.person.id,
+    article: kind === "negative" ? str(form, "article").slice(0, 120) || undefined : undefined,
   });
   logEvent({ actor: session.person.id, action: "crear", entity: "anotacion", recordId: rec0.id, courseId, after: { studentId, kind, severity: rec0.severity, description } });
   const rec = recognize({ type: "conduct", kind, date: "" });
@@ -270,6 +278,52 @@ async function addConductImpl(form: FormData) {
     "anotaciones",
     rec ? `Anotación registrada. El estudiante recibe de inmediato: "${rec.message}" (+${rec.points} puntos).` : "Anotación registrada. Se trabajará con medida formativa; no descuenta puntos.",
   );
+}
+
+// ───────────────────────────── Firma de evaluaciones ─────────────────────────────
+
+async function signEvaluationImpl(form: FormData) {
+  const subjectId = str(form, "subjectId");
+  const evaluationId = str(form, "evaluationId");
+  const extra = `&eval=${evaluationId}`;
+  const { session, courseId } = await guard(subjectId, "grade.write", "notas");
+  const ev = repo.evaluationsOf(subjectId).find((e) => e.id === evaluationId);
+  if (!ev) back(subjectId, "notas", { error: "Evaluación no encontrada." });
+  const subject = repo.subject(subjectId);
+  if (subject?.teacherId && subject.teacherId !== session.person.id) back(subjectId, "notas", { error: "Firma el docente de la asignatura." }, extra);
+  const check = evaluationSignIssues(ev, repo.gradesOf(subjectId), repo.studentsOf(courseId).map((s) => s.id));
+  if (check.errors.length) back(subjectId, "notas", { error: check.errors.join(". ") }, extra);
+  const signed = await verifySignature(session, str(form, "code"));
+  if (!signed.ok) back(subjectId, "notas", { error: signed.error }, extra);
+  ev.signature = signed.signature;
+  logEvent({ actor: session.person.id, action: "firmar", entity: "evaluacion", recordId: ev.id, courseId, after: { method: signed.signature.method, notas: repo.gradesOf(subjectId).filter((g) => g.evaluationId === ev.id).length } });
+  done(subjectId, "notas", check.missing ? `Evaluación firmada. ${check.missing} estudiante(s) quedan sin nota: si la rinden después, se registra y queda en la bitácora.` : "Evaluación firmada.");
+}
+
+// ───────────────────────────── Medidas disciplinarias ─────────────────────────────
+
+const canMeasure = (s: Session, courseId: string) => s.person.roles.some((r) => r === "inspector" || r === "director" || r === "school_admin") || s.scope.headOfCourseIds.includes(courseId);
+
+async function addMeasureImpl(form: FormData) {
+  const subjectId = str(form, "subjectId");
+  const session = await getSession();
+  if (!session) redirect(`/ingresar?next=${encodeURIComponent(`/libro/${subjectId}`)}`);
+  const subject = repo.subject(subjectId);
+  if (!subject) redirect("/libro");
+  const courseId = subject.courseId;
+  if (!canMeasure(session, courseId)) back(subjectId, "anotaciones", { error: "Las medidas las registran inspectoría, dirección, administración o el profesor jefe." });
+  const record = repo.conductOf(courseId).find((c) => c.id === str(form, "conductId"));
+  if (!record) back(subjectId, "anotaciones", { error: "Anotación no encontrada." });
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(new Date());
+  const draft = { type: str(form, "type"), detail: str(form, "detail").slice(0, 600), from: str(form, "from") || undefined, to: str(form, "to") || undefined, article: str(form, "article") || record.article };
+  const issues = measureIssues(draft, { kind: record.kind, isDirector: session.person.roles.includes("director"), incidentDate: record.date, today });
+  if (issues.length) back(subjectId, "anotaciones", { error: issues.join(". ") });
+  const before = { article: record.article ?? null, measures: record.measures?.length ?? 0 };
+  record.article = draft.article!.slice(0, 120);
+  const measure = { id: uuidv7(), type: draft.type as DisciplinaryMeasureType, detail: draft.detail, from: draft.from, to: draft.to, by: session.person.id, at: new Date().toISOString() };
+  (record.measures ??= []).push(measure);
+  logEvent({ actor: session.person.id, action: "modificar", entity: "anotacion", recordId: record.id, courseId, before, after: { article: record.article, measure } });
+  done(subjectId, "anotaciones", "Medida registrada en la anotación.");
 }
 
 // Cada acción sincroniza el estado antes de ejecutarse y guarda los cambios al terminar.
@@ -295,4 +349,12 @@ export async function saveGrades(form: FormData) {
 
 export async function addConduct(form: FormData) {
   return withState(() => addConductImpl(form));
+}
+
+export async function signEvaluation(form: FormData) {
+  return withState(() => signEvaluationImpl(form));
+}
+
+export async function addMeasure(form: FormData) {
+  return withState(() => addMeasureImpl(form));
 }

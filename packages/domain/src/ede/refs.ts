@@ -22,11 +22,19 @@ export type EdeRefKey =
   | "orgType.codigoEnsenanza" | "orgType.grado"
   | "assessmentType.formativa" | "assessmentType.sumativa" | "scoreMetric.nota" | "assessmentStaffRole.estudiante"
   | "incidentBehavior.positiva" | "incidentBehavior.negativa" | "incidentPersonType.estudiante" | "incidentPersonType.docente"
-  | "incidentPersonRole.estudiante" | "incidentReporterType.docente" | "incidentTime.horaClases";
+  | "incidentPersonRole.estudiante" | "incidentReporterType.docente" | "incidentTime.horaClases"
+  | `disciplinaryAction.${DisciplinaryMeasureType}`;
+
+import { MEASURE_LABEL, type DisciplinaryMeasureType } from "../discipline";
 
 export type EdeRefSource = { lookup: string; observed?: number; inferred?: number; note?: string };
 
+const disciplinarySources = Object.fromEntries(
+  (Object.keys(MEASURE_LABEL) as DisciplinaryMeasureType[]).map((k) => [`disciplinaryAction.${k}`, { lookup: `RefDisciplinaryActionTaken («${MEASURE_LABEL[k]}»): por confirmar` }]),
+) as Record<`disciplinaryAction.${DisciplinaryMeasureType}`, EdeRefSource>;
+
 export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
+  ...disciplinarySources,
   "role.estudiante": { lookup: "Role.Name = 'Estudiante'", observed: 6, note: "fn28A, fn6C0, fn6E0" },
   "role.docente": { lookup: "Role.Name = 'Docente'" },
   "role.profesorJefe": { lookup: "Role.Name = 'Profesor(a) Jefe'" },

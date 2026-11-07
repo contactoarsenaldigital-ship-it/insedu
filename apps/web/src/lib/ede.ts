@@ -48,11 +48,11 @@ export function edeInput(): EdeInput {
       const b = day.find((p) => p.number === x.period);
       return b ? [{ subjectId: x.subjectId, weekday: x.weekday, period: x.period, start: b.start, end: b.end }] : [];
     }),
-    evaluations: repo.subjects().flatMap((x) => repo.evaluationsOf(x.id)).map((e) => ({ id: e.id, subjectId: e.subjectId, title: e.title, date: e.date, weight: e.weight })),
+    evaluations: repo.subjects().flatMap((x) => repo.evaluationsOf(x.id)).map((e) => ({ id: e.id, subjectId: e.subjectId, title: e.title, date: e.date, weight: e.weight, signedAt: e.signature?.at, signerId: e.signature?.by, signatureKey: e.signature?.key })),
     grades: repo.subjects().flatMap((x) => repo.gradesOf(x.id)).map((g) => ({ evaluationId: g.evaluationId, studentId: g.studentId, value: g.value })),
     conduct: s.conduct.map((c) => {
       const at = conductTimes.get(c.id);
-      return { id: c.id, studentId: c.studentId, date: c.date, time: at ? localTime(at, tz).concat(":00") : undefined, kind: c.kind, severity: c.severity, description: c.description, recordedBy: c.recordedBy };
+      return { id: c.id, studentId: c.studentId, date: c.date, time: at ? localTime(at, tz).concat(":00") : undefined, kind: c.kind, severity: c.severity, description: c.description, recordedBy: c.recordedBy, article: c.article, measures: c.measures?.map((m) => ({ id: m.id, type: m.type, from: m.from, to: m.to })) };
     }),
     suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
     exportedAt: new Date().toISOString(),

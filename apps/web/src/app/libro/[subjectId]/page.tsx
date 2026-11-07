@@ -5,6 +5,7 @@ import {
   can,
   evaluationStats,
   formatGrade,
+  MEASURE_LABEL,
   formatRut,
   weightedAverage,
   type Evaluation,
@@ -16,7 +17,7 @@ import {
 import { getSession, type Session } from "@/lib/session";
 import { repo } from "@/lib/store";
 import type { Subject } from "@/lib/repository";
-import { addConduct, addEvaluation, createLesson, saveGrades, signLesson, updateLessonAttendance } from "../actions";
+import { addConduct, addEvaluation, addMeasure, createLesson, saveGrades, signEvaluation, signLesson, updateLessonAttendance } from "../actions";
 import { readState } from "@/lib/state";
 import { DownloadLinks } from "@/components/DownloadLinks";
 import { scheduledBlocks } from "@/lib/horario";
@@ -81,8 +82,8 @@ export default async function SubjectBook({ params, searchParams }: { params: Pr
       {sp.error && <p className="notice warn" role="alert">{sp.error}</p>}
 
       {tab === "clases" && <Lessons subject={subject} students={students} session={session} canWrite={allowed("lesson.write")} canCorrect={allowed("record.correct")} />}
-      {tab === "notas" && <Grades subject={subject} students={students} canWrite={allowed("grade.write")} canCorrect={allowed("record.correct")} selected={sp.eval} />}
-      {tab === "anotaciones" && <Conduct subject={subject} students={students} canWrite={allowed("conduct.write")} />}
+      {tab === "notas" && <Grades subject={subject} students={students} canWrite={allowed("grade.write")} canCorrect={allowed("record.correct")} selected={sp.eval} session={session} />}
+      {tab === "anotaciones" && <Conduct subject={subject} students={students} canWrite={allowed("conduct.write")} canMeasure={session.person.roles.some((r) => r === "inspector" || r === "director" || r === "school_admin") || session.scope.headOfCourseIds.includes(subject.courseId)} />}
       {tab === "correcciones" && <Corrections courseId={subject.courseId} students={students} />}
     </main>
   );
@@ -234,7 +235,7 @@ function LessonCard({ lesson, students, subject, canWrite, canCorrect, isAuthor 
 
 // ───────────────────────────── Calificaciones ─────────────────────────────
 
-function Grades({ subject, students, canWrite, canCorrect, selected }: { subject: Subject; students: Student[]; canWrite: boolean; canCorrect: boolean; selected?: string }) {
+function Grades({ subject, students, canWrite, canCorrect, selected, session }: { subject: Subject; students: Student[]; canWrite: boolean; canCorrect: boolean; selected?: string; session: Session }) {
   const evals = repo.evaluationsOf(subject.id);
   const grades = repo.gradesOf(subject.id);
   const value = (e: Evaluation, st: Student) => grades.find((g) => g.evaluationId === e.id && g.studentId === st.id)?.value;
@@ -242,7 +243,7 @@ function Grades({ subject, students, canWrite, canCorrect, selected }: { subject
 
   return (
     <>
-      {editing && <GradeEditor subject={subject} evaluation={editing} students={students} grades={grades} canCorrect={canCorrect} />}
+      {editing && <GradeEditor subject={subject} evaluation={editing} students={students} grades={grades} canCorrect={canCorrect} session={session} />}
 
       <section className="section">
         <div className="section-head">
@@ -260,6 +261,7 @@ function Grades({ subject, students, canWrite, canCorrect, selected }: { subject
                     {e.title}
                     <br />
                     <span className="muted" style={{ textTransform: "none" }}>{e.date.slice(5).split("-").reverse().join("/")} · ×{String(e.weight).replace(".", ",")}</span>
+                    <br /><span className={`tag ${e.signature ? "ok" : "media"}`} style={{ textTransform: "none" }}>{e.signature ? "Firmada" : "Sin firma"}</span>
                     {canWrite && <><br /><Link href={`/libro/${subject.id}?tab=notas&eval=${e.id}`}>Ingresar / corregir</Link></>}
                   </th>
                 ))}
@@ -303,7 +305,7 @@ function Grades({ subject, students, canWrite, canCorrect, selected }: { subject
   );
 }
 
-function GradeEditor({ subject, evaluation, students, grades, canCorrect }: { subject: Subject; evaluation: Evaluation; students: Student[]; grades: GradeEntry[]; canCorrect: boolean }) {
+function GradeEditor({ subject, evaluation, students, grades, canCorrect, session }: { subject: Subject; evaluation: Evaluation; students: Student[]; grades: GradeEntry[]; canCorrect: boolean; session: Session }) {
   const stats = evaluationStats(evaluation, grades);
   const current = (st: Student) => grades.find((g) => g.evaluationId === evaluation.id && g.studentId === st.id)?.value;
   return (
@@ -335,6 +337,19 @@ function GradeEditor({ subject, evaluation, students, grades, canCorrect }: { su
           <Link className="btn secondary" href={`/libro/${subject.id}?tab=notas`}>Cancelar</Link>
         </div>
       </form>
+      {evaluation.signature ? (
+        <p className="notice ok section">Firmada el {new Date(evaluation.signature.at).toLocaleString("es-CL", { timeZone: "America/Santiago", dateStyle: "short", timeStyle: "short" })} {SIGNATURE_LABEL[evaluation.signature.method]}. Toda modificación posterior se registra como corrección con motivo.</p>
+      ) : stats.count > 0 && (
+        <form action={signEvaluation} className="card section sign-form">
+          <input type="hidden" name="subjectId" value={subject.id} />
+          <input type="hidden" name="evaluationId" value={evaluation.id} />
+          <p>Al firmar cierra la evaluación con su verificador. El Estándar de Datos para la Educación exige la firma del docente en cada nota.</p>
+          <DemoCode session={session} />
+          <label htmlFor="ecode">Código de 6 dígitos</label>
+          <input id="ecode" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required />
+          <button className="btn primary">Firmar evaluación</button>
+        </form>
+      )}
     </section>
   );
 }
@@ -343,7 +358,7 @@ function GradeEditor({ subject, evaluation, students, grades, canCorrect }: { su
 
 const KIND_LABEL = { positive: "Positiva", negative: "Negativa", commendation: "Felicitación" } as const;
 
-function Conduct({ subject, students, canWrite }: { subject: Subject; students: Student[]; canWrite: boolean }) {
+function Conduct({ subject, students, canWrite, canMeasure }: { subject: Subject; students: Student[]; canWrite: boolean; canMeasure: boolean }) {
   const records = repo.conductOf(subject.courseId).slice(0, 40);
   const byId = new Map(students.map((s) => [s.id, s]));
   return (
@@ -377,6 +392,10 @@ function Conduct({ subject, students, canWrite }: { subject: Subject; students: 
               </div>
             </div>
             <div className="field">
+              <label htmlFor="article">Artículo del reglamento interno (solo negativas)</label>
+              <input id="article" name="article" maxLength={120} placeholder="Ej.: Art. 42, falta grave" />
+            </div>
+            <div className="field">
               <label htmlFor="description">Hecho observado</label>
               <textarea id="description" name="description" rows={2} required minLength={10} maxLength={500} placeholder="Describa la conducta concreta, sin juicios sobre la persona." />
             </div>
@@ -392,7 +411,7 @@ function Conduct({ subject, students, canWrite }: { subject: Subject; students: 
         <p className="muted">Se muestran las 40 más recientes; la planilla descargable las incluye todas.</p>
         <div className="table-scroll">
           <table className="data">
-            <thead><tr><th>Fecha</th><th>Estudiante</th><th>Tipo</th><th>Hecho</th><th>Registrado por</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Estudiante</th><th>Tipo</th><th>Hecho</th><th>Registrado por</th><th>Medidas</th></tr></thead>
             <tbody>
               {records.map((r) => {
                 const st = byId.get(r.studentId);
@@ -403,6 +422,30 @@ function Conduct({ subject, students, canWrite }: { subject: Subject; students: 
                     <td><span className={`tag ${r.kind === "negative" ? (r.severity === "leve" ? "media" : "alta") : "ok"}`}>{KIND_LABEL[r.kind]}{r.severity ? ` · ${r.severity === "gravisima" ? "gravísima" : r.severity}` : ""}</span></td>
                     <td>{r.description}</td>
                     <td className="muted">{repo.person(r.recordedBy)?.name ?? "Docente"}</td>
+                    <td>
+                      {r.kind !== "negative" ? "—" : (
+                        <>
+                          {r.article && <span className="muted">{r.article}<br /></span>}
+                          {(r.measures ?? []).map((m) => <span key={m.id}>{MEASURE_LABEL[m.type]}{m.from ? ` (${m.from}${m.to && m.to !== m.from ? ` a ${m.to}` : ""})` : ""}<br /></span>)}
+                          {!r.measures?.length && <span className="tag media">Sin medida</span>}
+                          {canMeasure && (
+                            <details>
+                              <summary>Registrar medida</summary>
+                              <form action={addMeasure} className="measure-form">
+                                <input type="hidden" name="subjectId" value={subject.id} />
+                                <input type="hidden" name="conductId" value={r.id} />
+                                <select name="type" aria-label="Medida">{Object.entries(MEASURE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                                <input name="article" defaultValue={r.article} placeholder="Artículo del reglamento" aria-label="Artículo del reglamento interno" required minLength={3} maxLength={120} />
+                                <input name="detail" placeholder="Medida y procedimiento seguido" aria-label="Detalle de la medida" required minLength={10} maxLength={600} />
+                                <label>Desde <input name="from" type="date" /></label>
+                                <label>Hasta <input name="to" type="date" /></label>
+                                <button className="btn secondary small">Guardar medida</button>
+                              </form>
+                            </details>
+                          )}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

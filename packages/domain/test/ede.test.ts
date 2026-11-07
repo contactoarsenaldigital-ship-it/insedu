@@ -18,7 +18,7 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
   schedule: [{ subjectId: "s1", weekday: 1, period: 2, start: "08:45", end: "09:30" }],
   evaluations: [{ id: "e1", subjectId: "s1", title: "Prueba 1", date: "2026-10-06", weight: 1, signedAt: "2026-10-06T12:00:00Z", signerId: "t1", signatureKey: "654321" }, { id: "e2", subjectId: "s1", title: "Prueba 2", date: "2026-10-20", weight: 3 }],
   grades: [{ evaluationId: "e1", studentId: "a", value: 5.46 }, { evaluationId: "e2", studentId: "a", value: 4 }],
-  conduct: [{ id: "k1", studentId: "a", date: "2026-10-07", time: "10:15:00", kind: "negative", severity: "grave", description: "Agresión verbal", recordedBy: "t1" }, { id: "k2", studentId: "a", date: "2026-10-08", kind: "positive", description: "Ayuda a un compañero", recordedBy: "t1" }],
+  conduct: [{ id: "k1", studentId: "a", date: "2026-10-07", time: "10:15:00", kind: "negative", severity: "grave", description: "Agresión verbal", recordedBy: "t1", article: "Art. 42", measures: [{ id: "m1", type: "suspension", from: "2026-10-08", to: "2026-10-09" }] }, { id: "k3", studentId: "a", date: "2026-10-09", time: "11:00:00", kind: "negative", severity: "leve", description: "Atraso reiterado", recordedBy: "t1" }, { id: "k2", studentId: "a", date: "2026-10-08", kind: "positive", description: "Ayuda a un compañero", recordedBy: "t1" }],
   exportedAt: "2026-11-07T15:00:00Z",
   timeZone: "America/Santiago",
   ...extra,
@@ -107,10 +107,12 @@ describe("EDE", () => {
   it("exporta anotaciones como incidentes e informa lo que falta", () => {
     const { json, issues } = buildEdeJson(input(), allRefs);
     const inc = table(json, "_Incidentes", "Incident");
-    expect(inc).toHaveLength(2);
+    expect(inc).toHaveLength(3);
     expect(inc[0]).toMatchObject({ IncidentTime: "10:15:00", RefIncidentBehaviorId: allRefs["incidentBehavior.negativa"] });
-    expect(JSON.parse(String(inc[0]!.RegulationViolatedDescription))).toMatchObject({ Severidad: "grave" });
-    expect(inc[1]!.RegulationViolatedDescription).toBeNull();
+    expect(JSON.parse(String(inc[0]!.RegulationViolatedDescription))).toMatchObject({ ArtículoProtocolo: "Art. 42", Severidad: "grave", Procedimiento: "suspension" });
+    expect(inc[2]!.RegulationViolatedDescription).toBeNull();
+    expect(table(json, "_Incidentes", "K12StudentDiscipline")).toEqual([expect.objectContaining({ RefDisciplinaryActionTakenId: allRefs["disciplinaryAction.suspension"], DisciplinaryActionStartDate: "2026-10-08", DisciplinaryActionEndDate: "2026-10-09", DurationOfDisciplinaryAction: 2 })]);
+    expect(issues.map((i) => i.message).join(" | ")).toContain("1 anotación(es) negativa(s) sin el artículo");
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).toContain("1 anotación(es) sin hora");
     expect(text).toContain("sin medida disciplinaria");

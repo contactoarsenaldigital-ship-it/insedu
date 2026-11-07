@@ -47,6 +47,8 @@ export type Evaluation = {
   date: string;
   /** Ponderación relativa; si todas son iguales, el promedio es simple. */
   weight: number;
+  /** Firma del docente con el verificador: cierra la evaluación (el EDE la exige en cada nota). */
+  signature?: LessonSignature;
 };
 
 export type GradeEntry = { evaluationId: string; studentId: string; value: number };

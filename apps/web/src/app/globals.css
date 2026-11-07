@@ -549,3 +549,5 @@ fieldset.plain:disabled .question { opacity: .75; }
 /* ───────────── Horario ───────────── */
 .timetable th, .timetable td { padding: 4px 6px; white-space: nowrap; font-size: .88rem; }
 .timetable select { min-width: 120px; font: inherit; }
+.measure-form { display: grid; gap: 6px; margin-top: 6px; min-width: 240px; }
+.measure-form input, .measure-form select { font: inherit; }

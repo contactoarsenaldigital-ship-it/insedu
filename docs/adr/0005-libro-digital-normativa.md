@@ -73,7 +73,12 @@ sesión del día); anotaciones (Incident, IncidentPerson y K12StudentDiscipline)
 con el verificador, las anotaciones del colegio ficticio no tienen hora, las negativas no registran medida disciplinaria ni el
 artículo del reglamento, y no hay registro de entrevistas con apoderados.
 
-**Pendiente:** firma de evaluaciones y anotaciones, medidas disciplinarias, entrevistas con apoderados, PIE, salidas, entregas, documentos en
+**Cuarta etapa (hecha):** el docente firma cada evaluación con el verificador (se exporta en LearnerActivity), y las anotaciones
+negativas registran el artículo del reglamento interno y sus medidas disciplinarias (K12StudentDiscipline, con fechas y días).
+Cancelación de matrícula y expulsión solo las registra dirección. Las medidas las anotan inspectoría, dirección, administración y
+el profesor jefe del curso.
+
+**Pendiente:** firma de anotaciones, entrevistas con apoderados, PIE, salidas, entregas, documentos en
 base64 (Document), apoderados (PersonRelationship), código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula

@@ -1,3 +1,4 @@
+import type { DisciplinaryMeasure } from "./discipline";
 /** Tipos compartidos del dominio INSEDU. Identificadores como string (UUIDv7). */
 
 export type Role =
@@ -92,6 +93,10 @@ export type ConductRecord = {
   severity?: "leve" | "grave" | "gravisima";
   description: string;
   recordedBy: string;
+  /** Artículo del reglamento interno que se infringió (anotaciones negativas). */
+  article?: string;
+  /** Medidas disciplinarias aplicadas después, según el reglamento interno. */
+  measures?: DisciplinaryMeasure[];
 };
 
 export type HealthVisit = {

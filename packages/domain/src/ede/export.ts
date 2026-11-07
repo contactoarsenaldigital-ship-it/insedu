@@ -14,6 +14,7 @@
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
+import { measureDays, type DisciplinaryMeasureType } from "../discipline";
 
 export type EdeAttendanceStatus = "present" | "late" | "absent" | "justified";
 
@@ -35,7 +36,7 @@ export type EdeInput = {
   evaluations: { id: string; subjectId: string; title: string; date: string; weight: number; signedAt?: string; signerId?: string; signatureKey?: string }[];
   grades: { evaluationId: string; studentId: string; value: number }[];
   /** Anotaciones. La hora sale del registro en la bitácora, si existe. */
-  conduct: { id: string; studentId: string; date: string; time?: string; kind: "positive" | "negative" | "commendation"; severity?: string; description: string; recordedBy: string; disciplinaryAction?: string }[];
+  conduct: { id: string; studentId: string; date: string; time?: string; kind: "positive" | "negative" | "commendation"; severity?: string; description: string; recordedBy: string; article?: string; measures?: { id: string; type: DisciplinaryMeasureType; from?: string; to?: string }[] }[];
   /** Instante de la exportación, ISO. */
   exportedAt: string;
   timeZone: string;
@@ -278,7 +279,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (input.grades.length > gradesOut) issues.push({ severity: "aviso", message: `${input.grades.length - gradesOut} nota(s) de estudiantes fuera de la asignatura no se exportan` });
 
   // ── Anotaciones: un incidente por anotación, con el estudiante y quien la registró ──
-  let noTime = 0, negativeWithoutAction = 0, conductOut = 0;
+  let noTime = 0, negativeWithoutAction = 0, negativeWithoutArticle = 0, conductOut = 0;
   for (const c of input.conduct) {
     const courseId = studentCourse.get(c.studentId);
     if (!courseId) continue;
@@ -291,20 +292,28 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     push("Incident", {
       IncidentId: inc, IncidentIdentifier: c.id.slice(0, 40), IncidentDate: c.date, IncidentTime: c.time ?? null, IncidentDescription: c.description,
       RefIncidentBehaviorId: ref(negative ? "incidentBehavior.negativa" : "incidentBehavior.positiva"), RefIncidentTimeDescriptionCodeId: ref("incidentTime.horaClases"),
-      RegulationViolatedDescription: negative ? JSON.stringify({ ArtículoProtocolo: null, Severidad: c.severity ?? null, Procedimiento: null }) : null,
+      RegulationViolatedDescription: negative ? JSON.stringify({ ArtículoProtocolo: c.article ?? null, Severidad: c.severity ?? null, Procedimiento: c.measures?.length ? c.measures.map((m) => m.type).join(", ") : null }) : null,
       IncidentReporterId: reporter ? id(reporter) : null, RefIncidentReporterTypeId: reporter ? ref("incidentReporterType.docente") : null,
       OrganizationId: id(`org:course:${courseId}`), OrganizationPersonRoleId: id(studentRole), RecordStartDateTime: start, RecordEndDateTime: null,
     });
     push("IncidentPerson", { IncidentId: inc, PersonId: id(`person:${c.studentId}`), Identifier: c.id.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.estudiante"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.estudiante"), Date: c.time ? `${c.date}T${c.time}${dayStart(c.date, tz).slice(19)}` : dayStart(c.date, tz), RecordStartDateTime: start, RecordEndDateTime: null });
     if (negative) {
-      if (c.disciplinaryAction) push("K12StudentDiscipline", { K12StudentDisciplineId: id(`disc:${c.id}`), IncidentId: inc, personId: id(`person:${c.studentId}`), OrganizationPersonRoleId: id(studentRole), DisciplinaryActionStartDate: c.date, RecordStartDateTime: start, RecordEndDateTime: null });
-      else negativeWithoutAction++;
+      if (!c.article) negativeWithoutArticle++;
+      for (const m of c.measures ?? []) {
+        push("K12StudentDiscipline", {
+          K12StudentDisciplineId: id(`disc:${m.id}`), IncidentId: inc, personId: id(`person:${c.studentId}`), OrganizationPersonRoleId: id(studentRole),
+          RefDisciplinaryActionTakenId: ref(`disciplinaryAction.${m.type}`), DisciplinaryActionStartDate: m.from ?? c.date, DisciplinaryActionEndDate: m.to ?? null,
+          DurationOfDisciplinaryAction: measureDays(m) ?? null, FullYearExpulsion: m.type === "expulsion" ? 1 : 0, RecordStartDateTime: start, RecordEndDateTime: null,
+        });
+      }
+      if (!c.measures?.length) negativeWithoutAction++;
     }
     conductOut++;
   }
   if (noTime) issues.push({ severity: "error", message: `${noTime} anotación(es) sin hora: el validador exige IncidentTime. Solo las registradas en INSEDU la tienen` });
   if (negativeWithoutAction) issues.push({ severity: "error", message: `${negativeWithoutAction} anotación(es) negativa(s) sin medida disciplinaria registrada (K12StudentDiscipline)` });
-  if (conductOut) issues.push({ severity: "aviso", message: "Las anotaciones no llevan la firma del docente ni el artículo del reglamento interno que se infringió: INSEDU aún no los registra" });
+  if (negativeWithoutArticle) issues.push({ severity: "error", message: `${negativeWithoutArticle} anotación(es) negativa(s) sin el artículo del reglamento interno que se infringió` });
+  if (conductOut) issues.push({ severity: "aviso", message: "Las anotaciones no llevan la firma del docente: INSEDU aún no la pide al registrarlas" });
   issues.push({ severity: "aviso", message: "Las entrevistas y reuniones con apoderados aún no se registran en INSEDU, así que no se exportan" });
 
   // ── Calendario: año escolar y suspensiones ──
