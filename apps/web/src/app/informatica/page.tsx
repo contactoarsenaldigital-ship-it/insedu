@@ -62,6 +62,7 @@ export default async function ITPage() {
         <p className="notice warn">Primera etapa: establecimiento, cursos, asignaturas, estudiantes, matrícula, número de lista, asistencia diaria y por clase, y suspensiones. Incluye el horario, las evaluaciones con sus notas y las anotaciones. Aún faltan PIE, salidas, entregas y documentos, y el diccionario oficial de códigos.</p>
         <ul>{ede.issues.map((i, k) => <li key={k}><span className={`tag ${i.severity === "error" ? "alta" : "media"}`}>{i.severity}</span> {i.message}</li>)}</ul>
         <p className="muted">{Object.entries(ede.counts).map(([t, n]) => `${t}: ${n}`).join(" · ")}</p>
+        <p><a href="/informatica/datos-ede">Datos para el EDE</a>: capacidad autorizada de cada curso y títulos de los docentes.</p>
         <a className="btn secondary" href="/api/ede" download>Descargar json.zip</a>
       </section>
 

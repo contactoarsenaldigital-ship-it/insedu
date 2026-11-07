@@ -8,7 +8,7 @@ import NDS from "../src/ede/nds-columns.json";
 const allRefs = Object.fromEntries((Object.keys(EDE_REF_SOURCES) as EdeRefKey[]).map((k, i) => [k, i + 100])) as EdeRefs;
 const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
   school: { rbd: "12345", name: "Colegio Ficticio", year: "2026" },
-  courses: [{ id: "c1", name: "5° Básico A", level: "5° Básico", headTeacherId: "t1" }],
+  courses: [{ id: "c1", name: "5° Básico A", level: "5° Básico", headTeacherId: "t1", capacity: 35 }],
   subjects: [{ id: "s1", courseId: "c1", name: "Matemática", teacherId: "t1" }],
   students: [{ id: "a", rut: "11111111-1", document: "RUN", firstName: "Ana María", lastName: "Pérez Soto", birthDate: "2015-04-02", sex: "F", address: "Calle 1", courseId: "c1", listNumber: 1, enrolledOn: "2026-03-02", guardian: { name: "María José Soto Rivas", rut: "12345678-5" } }, { id: "b", rut: "33333333-3", document: "RUN", firstName: "Tomás", lastName: "Rojas Vera", courseId: "c1", listNumber: 2, enrolledOn: "2026-03-02", withdrawnOn: "2026-09-30" }],
   pickups: [{ studentId: "a", name: "Pedro Soto Rivas", rut: "11222333-9" }],
@@ -20,7 +20,11 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
     { id: "r1", studentId: "b", courseId: "c1", on: "2026-10-01", time: "10:00", documents: "Certificado de notas", receiver: { name: "Laura Vera Díaz", kind: "apoderado" }, by: "t1", byKind: "administrativo", signedAt: "2026-10-01T13:00:00Z", signatureKey: "999000", docIds: ["sig-r1"] },
   ],
   pie: [{ studentId: "a", since: "2026-03-10" }],
-  staff: [{ id: "t1", rut: "22222222-2", name: "Carolina Fuentes" }],
+  staff: [{ id: "t1", rut: "22222222-2", name: "Carolina Fuentes", degrees: [{ title: "Profesora de Educación General Básica", institution: "Universidad de Chile", awardDate: "2010-12-20", idoneidad: false }] }],
+  institutional: [
+    { id: "i1", title: "Reglamento Interno 2026", publishedAt: "2026-03-01T13:00:00Z", by: "t1", docIds: ["ri"], acks: [{ studentId: "a", name: "María José Soto Rivas", at: "2026-03-05T22:00:00Z" }] },
+    { id: "i2", title: "PISE 2026", publishedAt: "2026-03-01T13:00:00Z", by: "t1", docIds: [], acks: [] },
+  ],
   daily: [{ studentId: "a", date: "2026-10-05", status: "late" }],
   lessons: [{ id: "l1", subjectId: "s1", date: "2026-10-05", attendance: { a: "present" }, signedAt: "2026-10-05T12:00:00Z", signerId: "t1", signatureKey: "123456" }],
   suspensions: [{ id: "x", date: "2026-09-10", reason: "Corte de agua", authorization: "Oficio 45" }],
@@ -32,7 +36,7 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
     { id: "m1", kind: "entrevista", courseId: "c1", studentId: "a", date: "2026-10-15", time: "16:30", description: "Rendimiento en Matemática. Acuerdos: reforzamiento", by: "t1", byTeacher: true, signedAt: "2026-10-15T20:00:00Z", signatureKey: "333444", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: ["d1"] },
     { id: "m2", kind: "reunion", courseId: "c1", date: "2026-10-20", time: "19:00", description: "Reunión de octubre", by: "t1", byTeacher: true, signedAt: "2026-10-20T23:00:00Z", signatureKey: "555666", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: [] },
   ],
-  documents: { d1: "JVBERi0xLjQK", "sig-x1": "iVBORw0KGgo=", "sig-r1": "iVBORw0KGgoB" },
+  documents: { ri: "JVBERi0xLjcK", d1: "JVBERi0xLjQK", "sig-x1": "iVBORw0KGgo=", "sig-r1": "iVBORw0KGgoB" },
   exportedAt: "2026-11-07T15:00:00Z",
   timeZone: "America/Santiago",
   ...extra,
@@ -194,6 +198,27 @@ describe("EDE", () => {
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).not.toContain("retirado(s) sin entrega");
     expect(text).toContain("no revisa el PIE");
+  });
+
+  it("exporta asignaturas con capacidad e idioma, títulos de docentes e instrumentos recibidos", () => {
+    const { json, issues } = buildEdeJson(input(), allRefs);
+    expect(table(json, "_Cursos", "CourseSection")[0]).toMatchObject({ MaximumCapacity: 35, VirtualIndicator: 0, RefInstructionLanguageId: allRefs["language.spanish"] });
+    const course = table(json, "_Organizaciones", "Organization").find((o) => o.ShortName === "5° Básico A")!;
+    expect(table(json, "_Cursos", "CourseSection")[0]!.CourseId).toBe(course.OrganizationId);
+    expect(table(json, "_Personas", "PersonDegreeOrCertificate")).toEqual([expect.objectContaining({ DegreeOrCertificateTitleOrSubject: "Profesora de Educación General Básica", idoneidadDocente: 0, AwardDate: "2010-12-20" })]);
+    const inc = table(json, "_Incidentes", "Incident").find((r) => r.RefIncidentBehaviorId === allRefs["incidentBehavior.interesGeneral"])!;
+    expect(inc).toMatchObject({ IncidentDate: "2026-03-01", IncidentTime: "10:00:00", IncidentDescription: "Reglamento Interno 2026" });
+    const person = table(json, "_Incidentes", "IncidentPerson").find((p) => p.IncidentId === inc.IncidentId)!;
+    expect(table(json, "_Comunes", "Document").find((d) => d.documentId === person.fileScanBase64)).toMatchObject({ fileScanBase64: "JVBERi0xLjcK" });
+    // El apoderado que confirma es el mismo de la matrícula.
+    expect(table(json, "_Personas", "Person").filter((p) => p.PersonId === person.PersonId)).toHaveLength(1);
+    const text = issues.map((i) => i.message).join(" | ");
+    expect(text).not.toContain("sin título");
+    expect(text).not.toContain("sin capacidad");
+    expect(text).toContain("1 instrumento(s) de interés general que ningún apoderado");
+    const missing = buildEdeJson(input({ courses: [{ id: "c1", name: "5° Básico A", level: "5° Básico", headTeacherId: "t1" }], staff: [{ id: "t1", rut: "22222222-2", name: "Carolina Fuentes" }] }), allRefs).issues.map((i) => i.message).join(" | ");
+    expect(missing).toContain("1 curso(s) sin capacidad autorizada");
+    expect(missing).toContain("1 docente(s) sin título registrado");
   });
 
   it("traduce el nivel al código de enseñanza y grado oficiales", () => {

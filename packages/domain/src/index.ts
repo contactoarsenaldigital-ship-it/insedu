@@ -29,6 +29,7 @@ export * from "./deliveries";
 export * from "./timetable";
 export * from "./discipline";
 export * from "./interviews";
+export * from "./staff-records";
 export * from "./ede/refs";
 export * from "./ede/export";
 export * from "./auth/policy";

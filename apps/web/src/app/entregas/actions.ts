@@ -130,6 +130,23 @@ export async function confirmReception(f: FormData) {
 export async function withdrawRequest(f: FormData) {
   return withState(() => withdrawImpl(f));
 }
+async function acknowledgeImpl(f: FormData) {
+  const s = await session("/entregas");
+  const wards = s.person.roles.includes("guardian_academic") ? s.person.wards ?? [] : [];
+  if (!wards.length) back("/entregas", { error: "Solo el apoderado confirma la recepción de los instrumentos." });
+  const doc = deliveriesState().institutional.find((d) => d.id === str(f, "docId") && !d.replacedAt);
+  if (!doc) back("/entregas", { error: "Ese instrumento no está vigente." });
+  if (doc.acknowledgements?.some((a) => a.personId === s.person.id)) back("/entregas", { error: "Ya confirmó haber recibido este instrumento." });
+  const ack = { personId: s.person.id, wardIds: wards, at: new Date().toISOString() };
+  (doc.acknowledgements ??= []).push(ack);
+  logEvent({ actor: s.person.id, action: "modificar", entity: "instrumento", recordId: doc.id, after: { recepcion: ack.at, pupilos: wards.length } });
+  back("/entregas", { ok: "Recepción confirmada." });
+}
+
+export async function acknowledgeInstitutional(f: FormData) {
+  return withState(() => acknowledgeImpl(f));
+}
+
 export async function publishInstitutional(f: FormData) {
   return withState(() => publishImpl(f));
 }

@@ -98,8 +98,16 @@ matrícula de cada estudiante marcado. Supuesto por validar: que la Superintende
 - Inconsistencia del validador: fn6E0 espera `ClassPeriod` como «Hora 02», y fn9F1 lo filtra con una expresión de
   «Bloque». Se mantiene «Hora 02» hasta correr `check`.
 
-**Pendiente:** documentos de interés general entregados a cada apoderado (fn1FB), títulos de los docentes (fn9F0), datos de
-CourseSection (capacidad, idioma; fn9F1), código de grado de `listValidationData`, y correr `check`.
+**Séptima etapa (hecha):**
+- `/informatica/datos-ede` (dirección y administración): capacidad autorizada de cada curso y títulos de docentes y
+  profesionales.
+- Se exporta CourseSection: curso, capacidad, presencial y español (fn9F1), y PersonDegreeOrCertificate con la idoneidad
+  docente (fn9F0).
+- El apoderado confirma desde su cuenta que recibió cada instrumento de interés general. Se exporta un Incident «Entrega de
+  documentos de interés general» por instrumento, con cada apoderado que confirmó y el archivo del instrumento en Document
+  (fn1FB). Supuesto por validar: que esa confirmación en la plataforma valga como entrega.
+
+**Pendiente:** diccionario oficial de códigos y correr `check` con Docker.
 
 ## Registro de matrícula
 

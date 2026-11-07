@@ -3,7 +3,7 @@ import { buildEdeJson, DELIVERY_DOC_LABEL, localTime, provisionalRefs, requestSt
 import { accountById } from "./accounts";
 import { fullName, school } from "./demo";
 import { ensureEnrollments } from "./matricula";
-import { allStaff, deliveriesState, documentsState, exitsState, findPerson, logbook, meetingsState, pieState, repo, subsidyState, timetableState } from "./store";
+import { allStaff, edeDataState, deliveriesState, documentsState, exitsState, findPerson, logbook, meetingsState, pieState, repo, subsidyState, timetableState } from "./store";
 import { actasOf, isTeacher } from "./entrevistas";
 import { bells, signatureWarning } from "./horario";
 import { getBlob } from "./documentos";
@@ -39,10 +39,17 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
   const conductTimes = new Map(logbook().filter((e) => e.entity === "anotacion" && e.action === "crear").map((e) => [e.recordId, e.at]));
   return {
     school: { rbd: s.rbd, name: s.name, year },
-    courses: s.courses.map((c) => ({ id: c.id, name: c.name, level: c.level, headTeacherId: c.headTeacherId || undefined })),
+    courses: s.courses.map((c) => ({ id: c.id, name: c.name, level: c.level, headTeacherId: c.headTeacherId || undefined, capacity: edeDataState().capacities.find((x) => x.courseId === c.id)?.capacity })),
     subjects: repo.subjects().map((x) => ({ id: x.id, courseId: x.courseId, name: x.name, teacherId: x.teacherId || undefined })),
     students,
-    staff: allStaff().map((p) => ({ id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : undefined })),
+    staff: allStaff().map((p) => ({
+      id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : undefined,
+      degrees: edeDataState().degrees.filter((d) => d.personId === p.id).map((d) => ({ title: d.title, institution: d.institution, awardDate: d.awardDate, idoneidad: d.idoneidad })),
+    })),
+    institutional: deliveriesState().institutional.map((d) => ({
+      id: d.id, title: d.title, publishedAt: d.at, by: d.by, docIds: documentsState().filter((x) => x.ownerKind === "institucional" && x.ownerId === d.id).map((x) => x.id),
+      acks: (d.acknowledgements ?? []).flatMap((a) => a.wardIds.map((studentId) => ({ studentId, name: findPerson(a.personId)?.name ?? "", at: a.at }))),
+    })),
     daily: s.attendance.map((a) => ({ studentId: a.studentId, date: a.date, status: a.status })),
     lessons: lessons.map((l) => {
       const signedAt = l.signature?.at ?? l.signedAt;
@@ -96,7 +103,7 @@ const attached = (kind: "salida" | "entrega", ownerId: string) => documentsState
 /** Documentos cifrados que el archivo incluye: actas, poderes y comprobantes. */
 const blobDocIds = () => [
   ...meetingsState().flatMap((m) => actasOf(m.id)).map((d) => d.id),
-  ...documentsState().filter((d) => d.ownerKind === "salida" || d.ownerKind === "entrega").map((d) => d.id),
+  ...documentsState().filter((d) => d.ownerKind === "salida" || d.ownerKind === "entrega" || d.ownerKind === "institucional").map((d) => d.id),
 ];
 
 /** Firmas en pantalla (PNG) de quien retira o recibe, en base64. */

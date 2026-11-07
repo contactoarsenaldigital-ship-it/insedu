@@ -30,6 +30,7 @@ export type EdeRefKey =
   | "attEvent.establecimiento" | "attStatus.earlyDeparture" | "roleStatus.enrolled" | "role.retira" | "role.funcionario"
   | "relationship.autorizadoRetiro" | "personStatus.retirado" | "incidentBehavior.entregaRetiro" | "incidentBehavior.entregaContinuidad"
   | "incidentPersonType.administrativo" | "incidentPersonType.otro" | "incidentPersonRole.entrega" | "incidentPersonRole.recibe" | "participation.pie"
+  | "language.spanish" | "incidentBehavior.interesGeneral"
   | `disciplinaryAction.${DisciplinaryMeasureType}`;
 
 import { MEASURE_LABEL, type DisciplinaryMeasureType } from "../discipline";
@@ -101,6 +102,8 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "incidentPersonType.otro": { lookup: "RefIncidentPersonType.Description = 'Adulto responsable o conocido del estudiante'", note: "fn8F2" },
   "incidentPersonRole.entrega": { lookup: "RefIncidentPersonRoleType de quien entrega documentos: por confirmar" },
   "incidentPersonRole.recibe": { lookup: "RefIncidentPersonRoleType de quien recibe documentos: por confirmar" },
+  "language.spanish": { lookup: "RefLanguage del español (código 'spa'): por confirmar", note: "fn9F1 exige CourseSection.RefInstructionLanguageId" },
+  "incidentBehavior.interesGeneral": { lookup: "RefIncidentBehavior.Description = 'Entrega de documentos de interés general'", note: "fn1FB" },
   "participation.pie": { lookup: "RefParticipationType del Programa de Integración Escolar: por confirmar", note: "Ninguna regla del validador revisa el PIE" },
 };
 

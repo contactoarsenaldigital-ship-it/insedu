@@ -13,7 +13,7 @@
  * Etapa 4: firma de las anotaciones, entrevistas y reuniones con apoderados (con el acta escaneada en Document).
  * Etapa 5: apoderados y autorizados a retirar, salidas (tres eventos EarlyDeparture), entrega de documentación y
  *   nómina PIE (sin diagnósticos; el validador no revisa el PIE).
- * Pendiente: documentos de interés general entregados a cada apoderado, títulos de los docentes.
+ * Etapa 6: datos de cada asignatura (CourseSection), títulos de los docentes y recepción de los instrumentos de interés general.
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
@@ -23,7 +23,8 @@ export type EdeAttendanceStatus = "present" | "late" | "absent" | "justified";
 
 export type EdeInput = {
   school: { rbd: string; name: string; year: string };
-  courses: { id: string; name: string; level: string; headTeacherId?: string }[];
+  /** capacity: capacidad autorizada del curso. */
+  courses: { id: string; name: string; level: string; headTeacherId?: string; capacity?: number }[];
   subjects: { id: string; courseId: string; name: string; teacherId?: string }[];
   students: {
     id: string; rut: string; document: "RUN" | "IPE"; firstName: string; lastName: string; birthDate?: string; sex?: "F" | "M";
@@ -46,7 +47,9 @@ export type EdeInput = {
   }[];
   /** Nómina del Programa de Integración Escolar, sin diagnósticos. */
   pie: { studentId: string; since: string; until?: string }[];
-  staff: { id: string; rut?: string; name: string }[];
+  staff: { id: string; rut?: string; name: string; degrees?: { title: string; institution: string; awardDate?: string; idoneidad: boolean }[] }[];
+  /** Instrumentos de interés general y los apoderados que confirmaron recibirlos. docIds: archivo del instrumento. */
+  institutional: { id: string; title: string; publishedAt: string; by: string; docIds: string[]; acks: { studentId: string; name: string; at: string }[] }[];
   daily: { studentId: string; date: string; status: EdeAttendanceStatus }[];
   lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
   /** Horario: una fila por asignatura, día y hora de la jornada. */
@@ -146,13 +149,21 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:course:${c.id}`), OrganizationId: org, Parent_OrganizationId: parent, RecordStartDateTime: start, RecordEndDateTime: null });
   }
   if (unknownLevels) issues.push({ severity: "error", message: `${unknownLevels} curso(s) con un nivel que no corresponde a Básica o Media regular: falta su código de enseñanza y grado` });
+  const capacityOf = new Map(input.courses.map((c) => [c.id, c.capacity]));
+  const withoutCapacity = new Set<string>();
   for (const s of input.subjects) {
     const org = id(`org:section:${s.id}`);
     push("Organization", { OrganizationId: org, Name: s.name, ShortName: s.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.courseSection"), RecordStartDateTime: start, RecordEndDateTime: null });
+    // fn9F1: cada asignatura con su curso, capacidad, modalidad presencial e idioma de instrucción.
+    const capacity = capacityOf.get(s.courseId);
+    if (capacity == null) withoutCapacity.add(s.courseId);
+    push("CourseSection", { OrganizationId: org, CourseId: id(`org:course:${s.courseId}`), MaximumCapacity: capacity ?? null, VirtualIndicator: 0, RefInstructionLanguageId: ref("language.spanish"), OrganizationCalendarSessionId: null, RecordStartDateTime: start, RecordEndDateTime: null });
     push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:section:${s.id}`), OrganizationId: org, Parent_OrganizationId: id(`org:course:${s.courseId}`), RecordStartDateTime: start, RecordEndDateTime: null });
   }
 
   // ── Personas ──
+  // (la capacidad se informa aquí para que el aviso quede junto a los cursos)
+  if (withoutCapacity.size) issues.push({ severity: "error", message: `${withoutCapacity.size} curso(s) sin capacidad autorizada registrada: el validador la exige en cada asignatura` });
   const opr = (personKey: string, orgKey: string, role: EdeRefKey, entry?: string, exit?: string) => {
     const key = `opr:${personKey}:${orgKey}`;
     const oprId = id(key);
@@ -205,6 +216,12 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       const [first = "", ...rest] = (p?.name ?? staffId).split(/\s+/);
       push("Person", { PersonId: id(pk), ...splitNames(first, rest.join(" ")), RecordStartDateTime: start, RecordEndDateTime: null });
       if (p?.rut && parseRut(p.rut)) identifier(pk, "idSystem.run", `${parseRut(p.rut)!.body}-${parseRut(p.rut)!.dv}`);
+      for (const [i, d] of (p?.degrees ?? []).entries()) {
+        push("PersonDegreeOrCertificate", {
+          PersonDegreeOrCertificateId: id(`degree:${staffId}:${i}`), PersonId: id(pk), DegreeOrCertificateTitleOrSubject: d.title, NameOfInstitution: d.institution,
+          AwardDate: d.awardDate ?? null, idoneidadDocente: d.idoneidad ? 1 : 0, RecordStartDateTime: start, RecordEndDateTime: null,
+        });
+      }
     }
     return pk;
   };
@@ -212,6 +229,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   for (const c of input.courses) if (c.headTeacherId) opr(staffPerson(c.headTeacherId), `org:course:${c.id}`, "role.profesorJefe");
   for (const s of input.subjects) if (s.teacherId) opr(staffPerson(s.teacherId), `org:section:${s.id}`, "role.docente");
   for (const p of input.staff) if (ids.has(`person:${p.id}`) && !(p.rut && parseRut(p.rut))) staffWithoutRut++;
+  const teachersWithoutDegree = new Set(input.subjects.map((s) => s.teacherId).filter((t): t is string => !!t && !staffById.get(t)?.degrees?.length)).size;
+  if (teachersWithoutDegree) issues.push({ severity: "error", message: `${teachersWithoutDegree} docente(s) sin título registrado: el validador exige el título o certificado de cada docente` });
   if (staffWithoutRut) issues.push({ severity: "error", message: `${staffWithoutRut} docente(s) sin RUN registrado: el validador los identifica por RUN` });
 
   // ── Apoderados y personas autorizadas a retirar ──
@@ -511,6 +530,34 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (deliveryNotGuardian) issues.push({ severity: "aviso", message: `${deliveryNotGuardian} entrega(s) recibidas por alguien que no es el apoderado: el validador busca al apoderado` });
   if (withdrawnWithout) issues.push({ severity: "error", message: `${withdrawnWithout} estudiante(s) retirado(s) sin entrega de documentos registrada` });
 
+  // ── Instrumentos de interés general recibidos por los apoderados (fn1FB) ──
+  let instrumentsWithoutFile = 0, instrumentsWithoutAcks = 0;
+  for (const d of input.institutional) {
+    if (!d.acks.length) {
+      instrumentsWithoutAcks++;
+      continue;
+    }
+    const file = documentRow(d.docIds);
+    if (file == null) instrumentsWithoutFile++;
+    const inc = id(`inc:institutional:${d.id}`);
+    const reporter = staffById.has(d.by) ? staffPerson(d.by) : null;
+    const published = withOffset(d.publishedAt, tz);
+    push("Incident", {
+      IncidentId: inc, IncidentIdentifier: d.id.slice(0, 40), IncidentDate: published.slice(0, 10), IncidentTime: published.slice(11, 19), IncidentDescription: d.title,
+      RefIncidentBehaviorId: ref("incidentBehavior.interesGeneral"), RefIncidentTimeDescriptionCodeId: ref("incidentTime.horaClases"), RegulationViolatedDescription: null,
+      IncidentReporterId: reporter ? id(reporter) : null, RefIncidentReporterTypeId: reporter ? ref("incidentReporterType.docente") : null,
+      OrganizationId: schoolOrg, OrganizationPersonRoleId: null, RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+    for (const [i, a] of d.acks.entries()) {
+      const courseId = studentCourse.get(a.studentId);
+      if (!courseId) continue;
+      const pk = adultPerson({ studentId: a.studentId, name: a.name }, courseId, "apoderado");
+      push("IncidentPerson", { IncidentId: inc, PersonId: id(pk), Identifier: `${d.id}:a${i + 1}`.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.apoderado"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.recibe"), Date: withOffset(a.at, tz), fileScanBase64: file, RecordStartDateTime: start, RecordEndDateTime: null });
+    }
+  }
+  if (instrumentsWithoutFile) issues.push({ severity: "error", message: `${instrumentsWithoutFile} instrumento(s) de interés general sin el archivo adjunto: el validador exige el documento entregado` });
+  if (instrumentsWithoutAcks) issues.push({ severity: "aviso", message: `${instrumentsWithoutAcks} instrumento(s) de interés general que ningún apoderado ha confirmado recibir` });
+
   // ── Programa de Integración Escolar: solo la nómina, sin diagnósticos ──
   for (const p of input.pie) {
     const courseId = studentCourse.get(p.studentId);
@@ -536,10 +583,10 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     _Comunes: ["Document"],
     _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
     _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
-    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship"],
+    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship", "PersonDegreeOrCertificate"],
     _Intervenciones: ["PersonProgramParticipation", "ProgramParticipationSpecialEducation"],
     _ComunidadEducativa: ["OrganizationPersonRole", "RoleStatus", "K12StudentEnrollment", "RoleAttendanceEvent"],
-    _Cursos: ["CourseSectionSchedule"],
+    _Cursos: ["CourseSection", "CourseSectionSchedule"],
     _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],
   };
   const json: EdeJson = Object.fromEntries(Object.entries(groups).map(([g, ts]) => [g, ts.filter((t) => tables[t]?.length).map((t) => ({ [t]: tables[t]! }))]));

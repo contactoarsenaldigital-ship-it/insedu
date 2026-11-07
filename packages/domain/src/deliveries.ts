@@ -142,6 +142,8 @@ export type InstitutionalDoc = {
   replacedAt?: string;
   by: string;
   at: string;
+  /** Apoderados que confirmaron desde su cuenta haber recibido el instrumento, por sus pupilos. */
+  acknowledgements?: { personId: string; wardIds: string[]; at: string }[];
 };
 
 export function institutionalIssues(d: { kind: string; title: string; version: string; where?: string }, today: string): string[] {

@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type BellPeriod, type ScheduleSlot, type GuardianMeeting, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type BellPeriod, type ScheduleSlot, type GuardianMeeting, type CourseCapacity, type StaffDegree, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -123,6 +123,9 @@ type State = {
   slots: ScheduleSlot[];
   /** Entrevistas y reuniones con apoderados (ver lib/entrevistas). */
   meetings: GuardianMeeting[];
+  /** Datos para el EDE (ver lib/datos-ede). */
+  courseCapacities: CourseCapacity[];
+  staffDegrees: StaffDegree[];
 };
 
 export function initStore(): State {
@@ -144,7 +147,7 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [], courseCapacities: [], staffDegrees: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
@@ -169,6 +172,14 @@ export function deliveriesState() {
 export const documentsState = (): StoredDocument[] => (state().documents ??= []);
 
 export const meetingsState = (): GuardianMeeting[] => (state().meetings ??= []);
+
+export function edeDataState() {
+  const st = state();
+  return {
+    get capacities() { return (st.courseCapacities ??= []); },
+    get degrees() { return (st.staffDegrees ??= []); },
+  };
+}
 
 export function subsidyState() {
   const st = state();

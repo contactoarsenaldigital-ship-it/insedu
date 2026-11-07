@@ -8,7 +8,7 @@ import { canManageDeliveries, canManageInstitutional, deliveriesToday, instituti
 import { getSession } from "@/lib/session";
 import { readState } from "@/lib/state";
 import { deliveriesState } from "@/lib/store";
-import { addRequest, publishInstitutional } from "./actions";
+import { acknowledgeInstitutional, addRequest, publishInstitutional } from "./actions";
 
 export const metadata = { title: "Documentos y certificados" };
 export const dynamic = "force-dynamic";
@@ -43,6 +43,7 @@ export default async function Deliveries({ searchParams }: { searchParams: Promi
   const instruments = institutionalDocs();
   const missing = missingInstitutional(deliveriesState().institutional);
   const course = staff && sp.curso ? courseById(sp.curso) : undefined;
+  const isGuardian = session.person.roles.includes("guardian_academic");
 
   const list = (items: typeof visible) => (
     <div className="table-scroll">
@@ -145,6 +146,10 @@ export default async function Deliveries({ searchParams }: { searchParams: Promi
             <strong>{d.title}</strong>
             {d.where && (/^https:\/\//.test(d.where) ? <a href={d.where} rel="noopener noreferrer" target="_blank">{d.where}</a> : <span className="muted">Se consulta en: {d.where}</span>)}
             <Attachments kind="institucional" ownerId={d.id} compact hint="Archivo del instrumento" />
+            {isGuardian && (d.acknowledgements?.some((a) => a.personId === session.person.id)
+              ? <span className="tag ok">Recepción confirmada</span>
+              : <form action={acknowledgeInstitutional}><input type="hidden" name="docId" value={d.id} /><button className="btn secondary small">Confirmo que lo recibí y lo conozco</button></form>)}
+            {canManageInstitutional(session) && <span className="muted">{d.acknowledgements?.length ?? 0} apoderado(s) confirmaron la recepción.</span>}
           </article>
         ))}
         {canManageInstitutional(session) && (
