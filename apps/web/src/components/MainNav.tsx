@@ -28,6 +28,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: "/mensajes", label: "Comunicación", roles: "all" },
       { href: "/salidas", label: "Salidas y retiros", roles: ["gatekeeper", "inspector", "head_teacher", "guardian_academic", "director", "school_admin"] },
       { href: "/entregas", label: "Documentos y certificados", roles: "all" },
+      { href: "/entrevistas", label: "Entrevistas y reuniones", roles: [...STAFF_TEACH, "inspector", "psychologist", "counselor", "social_worker", "pie_professional", "guardian_academic", "director", "school_admin"] },
       { href: "/encuestas", label: "Encuestas", roles: [...STAFF_TEACH, "student", "guardian_academic", "psychologist", "counselor", "safeguarding_lead", "director", "school_admin"] },
     ],
   },

@@ -261,6 +261,9 @@ async function addConductImpl(form: FormData) {
   if (description.length < 10 || description.length > 500) {
     back(subjectId, "anotaciones", { error: "Describa el hecho observado (10 a 500 caracteres)." });
   }
+  // Se firma al registrar: sin firma válida no se guarda.
+  const signed = await verifySignature(session, str(form, "code"));
+  if (!signed.ok) back(subjectId, "anotaciones", { error: `Anotación no registrada. ${signed.error}` });
   const rec0 = repo.addConduct({
     studentId,
     date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(new Date()),
@@ -269,8 +272,9 @@ async function addConductImpl(form: FormData) {
     description,
     recordedBy: session.person.id,
     article: kind === "negative" ? str(form, "article").slice(0, 120) || undefined : undefined,
+    signature: signed.signature,
   });
-  logEvent({ actor: session.person.id, action: "crear", entity: "anotacion", recordId: rec0.id, courseId, after: { studentId, kind, severity: rec0.severity, description } });
+  logEvent({ actor: session.person.id, action: "crear", entity: "anotacion", recordId: rec0.id, courseId, after: { studentId, kind, severity: rec0.severity, description, firma: signed.signature.method } });
   const rec = recognize({ type: "conduct", kind, date: "" });
   award(studentId, rec, "anotación", rec0.id); // refuerzo inmediato en el saldo del estudiante
   done(

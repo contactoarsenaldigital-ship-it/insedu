@@ -8,6 +8,7 @@ import { canRegisterExits } from "./salidas";
 import type { Session } from "./session";
 import { mainPool, TENANT_ID } from "./state";
 import { canManageDeliveries, canManageInstitutional, canSeeRequest } from "./entregas";
+import { canRegisterMeeting, canSeeMeeting, meetingById } from "./entrevistas";
 import { deliveriesState, documentsState, exitsState, subsidyState } from "./store";
 import { canManageSubsidy, canReadAllSubsidy } from "./subvenciones";
 
@@ -106,11 +107,19 @@ export function ownerOf(kind: DocumentOwnerKind, id: string): Owner | null {
     return r ? { courseId: r.courseId, back: `/entregas/${id}` } : null;
   }
   if (kind === "institucional") return deliveriesState().institutional.some((x) => x.id === id) ? { back: "/entregas" } : null;
+  if (kind === "entrevista") {
+    const m = meetingById(id);
+    return m ? { courseId: m.courseId, back: `/entrevistas/${id}` } : null;
+  }
   const c = subsidyState().corrections.find((x) => x.id === id);
   return c ? { courseId: c.courseId, back: `/subvenciones/${c.courseId}?mes=${c.date.slice(0, 7)}` } : null;
 }
 
-export function canUploadDocument(s: Session, kind: DocumentOwnerKind) {
+export function canUploadDocument(s: Session, kind: DocumentOwnerKind, ownerId: string) {
+  if (kind === "entrevista") {
+    const m = meetingById(ownerId);
+    return !!m && canRegisterMeeting(s, m.courseId);
+  }
   if (kind === "matricula") return canManageEnrollment(s);
   if (kind === "salida") return canRegisterExits(s);
   if (kind === "entrega") return canManageDeliveries(s);
@@ -126,7 +135,11 @@ export function canReadDocument(s: Session, kind: DocumentOwnerKind, ownerId: st
     const r = deliveriesState().requests.find((x) => x.id === ownerId);
     return !!r && canSeeRequest(s, r);
   }
-  return canUploadDocument(s, kind);
+  if (kind === "entrevista") {
+    const m = meetingById(ownerId);
+    return !!m && canSeeMeeting(s, m);
+  }
+  return canUploadDocument(s, kind, ownerId);
 }
 
 export const documentsOf = (kind: DocumentOwnerKind, ownerId: string): StoredDocument[] =>

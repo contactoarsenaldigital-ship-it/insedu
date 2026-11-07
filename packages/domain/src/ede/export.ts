@@ -10,7 +10,8 @@
  * Etapa 2: horario (CourseSectionSchedule) y sesiones del calendario por día de clase.
  * Etapa 3: jerarquía código de enseñanza → grado → curso, evaluaciones y notas (Assessment…, LearnerActivity) y
  * anotaciones (Incident, IncidentPerson, K12StudentDiscipline).
- * Pendiente: PIE, salidas, entregas, documentos y entrevistas con apoderados.
+ * Etapa 4: firma de las anotaciones, entrevistas y reuniones con apoderados (con el acta escaneada en Document).
+ * Pendiente: PIE, salidas y entregas.
  */
 import { parseRut } from "../rut";
 import type { EdeRefKey, EdeRefs } from "./refs";
@@ -36,7 +37,15 @@ export type EdeInput = {
   evaluations: { id: string; subjectId: string; title: string; date: string; weight: number; signedAt?: string; signerId?: string; signatureKey?: string }[];
   grades: { evaluationId: string; studentId: string; value: number }[];
   /** Anotaciones. La hora sale del registro en la bitácora, si existe. */
-  conduct: { id: string; studentId: string; date: string; time?: string; kind: "positive" | "negative" | "commendation"; severity?: string; description: string; recordedBy: string; article?: string; measures?: { id: string; type: DisciplinaryMeasureType; from?: string; to?: string }[] }[];
+  conduct: { id: string; studentId: string; date: string; time?: string; kind: "positive" | "negative" | "commendation"; severity?: string; description: string; recordedBy: string; article?: string; measures?: { id: string; type: DisciplinaryMeasureType; from?: string; to?: string }[]; signedAt?: string; signatureKey?: string }[];
+  /** Entrevistas y reuniones con apoderados. actaIds: documentos escaneados del acta firmada. */
+  meetings: {
+    id: string; kind: "entrevista" | "reunion"; courseId: string; studentId?: string; date: string; time: string; description: string;
+    by: string; byTeacher: boolean; signedAt: string; signatureKey?: string;
+    attendees: { studentId: string; name: string; rut?: string }[]; actaIds: string[];
+  }[];
+  /** Contenido de los documentos escaneados, en base64, por id. Sin contenido no se escribe la fila Document. */
+  documents: Record<string, string | undefined>;
   /** Instante de la exportación, ISO. */
   exportedAt: string;
   timeZone: string;
@@ -279,7 +288,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   if (input.grades.length > gradesOut) issues.push({ severity: "aviso", message: `${input.grades.length - gradesOut} nota(s) de estudiantes fuera de la asignatura no se exportan` });
 
   // ── Anotaciones: un incidente por anotación, con el estudiante y quien la registró ──
-  let noTime = 0, negativeWithoutAction = 0, negativeWithoutArticle = 0, conductOut = 0;
+  let noTime = 0, negativeWithoutAction = 0, negativeWithoutArticle = 0, unsignedConduct = 0;
   for (const c of input.conduct) {
     const courseId = studentCourse.get(c.studentId);
     if (!courseId) continue;
@@ -297,6 +306,11 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       OrganizationId: id(`org:course:${courseId}`), OrganizationPersonRoleId: id(studentRole), RecordStartDateTime: start, RecordEndDateTime: null,
     });
     push("IncidentPerson", { IncidentId: inc, PersonId: id(`person:${c.studentId}`), Identifier: c.id.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.estudiante"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.estudiante"), Date: c.time ? `${c.date}T${c.time}${dayStart(c.date, tz).slice(19)}` : dayStart(c.date, tz), RecordStartDateTime: start, RecordEndDateTime: null });
+    // Quien registra firma con su verificador (fn8F2: el docente necesita digitalRandomKey o un documento).
+    if (reporter) {
+      if (!c.signatureKey) unsignedConduct++;
+      push("IncidentPerson", { IncidentId: inc, PersonId: id(reporter), Identifier: `${c.id}:registra`.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.docente"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.registra"), Date: c.signedAt ? withOffset(c.signedAt, tz) : dayStart(c.date, tz), digitalRandomKey: c.signatureKey ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
+    }
     if (negative) {
       if (!c.article) negativeWithoutArticle++;
       for (const m of c.measures ?? []) {
@@ -308,13 +322,70 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       }
       if (!c.measures?.length) negativeWithoutAction++;
     }
-    conductOut++;
   }
   if (noTime) issues.push({ severity: "error", message: `${noTime} anotación(es) sin hora: el validador exige IncidentTime. Solo las registradas en INSEDU la tienen` });
   if (negativeWithoutAction) issues.push({ severity: "error", message: `${negativeWithoutAction} anotación(es) negativa(s) sin medida disciplinaria registrada (K12StudentDiscipline)` });
   if (negativeWithoutArticle) issues.push({ severity: "error", message: `${negativeWithoutArticle} anotación(es) negativa(s) sin el artículo del reglamento interno que se infringió` });
-  if (conductOut) issues.push({ severity: "aviso", message: "Las anotaciones no llevan la firma del docente: INSEDU aún no la pide al registrarlas" });
-  issues.push({ severity: "aviso", message: "Las entrevistas y reuniones con apoderados aún no se registran en INSEDU, así que no se exportan" });
+  if (unsignedConduct) issues.push({ severity: "error", message: `${unsignedConduct} anotación(es) sin firma de quien la registró: el validador exige el código del verificador del docente` });
+
+  // ── Entrevistas y reuniones con apoderados ──
+  // fn8F3: cada una necesita al apoderado (tipo «Apoderado», relación «Apoderado(a)/Tutor(a)», rol «Padre, madre o
+  // apoderado») con el acta escaneada en IncidentPerson.fileScanBase64 → Document.documentId.
+  const guardianPerson = (a: { studentId: string; name: string; rut?: string }, courseId: string) => {
+    const parsed = a.rut ? parseRut(a.rut) : null;
+    const pk = `person:guardian:${a.studentId}:${parsed ? parsed.body : a.name.trim().toLowerCase()}`;
+    if (!ids.has(pk)) {
+      // «Nombre [segundo nombre] Apellido1 Apellido2»: los dos últimos son los apellidos si hay más de dos palabras.
+      const words = a.name.trim().split(/\s+/);
+      const cut = words.length > 2 ? words.length - 2 : 1;
+      push("Person", { PersonId: id(pk), ...splitNames(words.slice(0, cut).join(" "), words.slice(cut).join(" ")), RecordStartDateTime: start, RecordEndDateTime: null });
+      if (parsed) identifier(pk, "idSystem.run", `${parsed.body}-${parsed.dv}`);
+      if (ids.has(`person:${a.studentId}`)) push("PersonRelationship", { PersonRelationshipId: id(`prel:${pk}`), PersonId: id(pk), RelatedPersonId: id(`person:${a.studentId}`), RefPersonRelationshipId: ref("relationship.apoderado"), RecordStartDateTime: start, RecordEndDateTime: null });
+    }
+    if (!ids.has(`opr:${pk}:org:course:${courseId}`)) opr(pk, `org:course:${courseId}`, "role.apoderado");
+    return pk;
+  };
+  let withoutActa = 0, actaWithoutContent = 0, guardiansWithoutRut = 0, meetingsOut = 0;
+  for (const m of input.meetings) {
+    if (!ids.has(`org:course:${m.courseId}`)) continue;
+    const interview = m.kind === "entrevista";
+    const inc = id(`inc:meeting:${m.id}`);
+    const studentRole = m.studentId ? `opr:person:${m.studentId}:org:course:${m.courseId}` : "";
+    const when = `${m.date}T${m.time}:00${dayStart(m.date, tz).slice(19)}`;
+    push("Incident", {
+      IncidentId: inc, IncidentIdentifier: m.id.slice(0, 40), IncidentDate: m.date, IncidentTime: `${m.time}:00`, IncidentDescription: m.description,
+      RefIncidentBehaviorId: ref(interview ? "incidentBehavior.entrevista" : "incidentBehavior.reunion"), RefIncidentTimeDescriptionCodeId: ref("incidentTime.horaClases"),
+      RegulationViolatedDescription: null, IncidentReporterId: null, RefIncidentReporterTypeId: null,
+      OrganizationId: id(`org:course:${m.courseId}`), OrganizationPersonRoleId: studentRole && ids.has(studentRole) ? id(studentRole) : null, RecordStartDateTime: start, RecordEndDateTime: null,
+    });
+    if (interview && m.studentId && ids.has(`person:${m.studentId}`)) {
+      push("IncidentPerson", { IncidentId: inc, PersonId: id(`person:${m.studentId}`), Identifier: `${m.id}:est`.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.estudiante"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.estudiante"), Date: when, RecordStartDateTime: start, RecordEndDateTime: null });
+    }
+    if (staffById.has(m.by)) {
+      push("IncidentPerson", {
+        IncidentId: inc, PersonId: id(staffPerson(m.by)), Identifier: `${m.id}:conduce`.slice(0, 40), RefIncidentPersonTypeId: ref(m.byTeacher ? "incidentPersonType.docente" : "incidentPersonType.profesional"),
+        RefIncidentPersonRoleTypeId: ref(interview ? "incidentPersonRole.entrevistador" : "incidentPersonRole.dirigeReunion"), Date: withOffset(m.signedAt, tz), digitalRandomKey: m.signatureKey ?? null, RecordStartDateTime: start, RecordEndDateTime: null,
+      });
+    }
+    // Un acta por registro; si se adjuntó más de una, vale la primera con contenido.
+    const actaId = m.actaIds.find((d) => input.documents[d]);
+    if (!m.actaIds.length) withoutActa++;
+    else if (!actaId) actaWithoutContent++;
+    if (actaId && !ids.has(`doc:${actaId}`)) push("Document", { documentId: id(`doc:${actaId}`), fileScanBase64: input.documents[actaId]! });
+    for (const [i, a] of m.attendees.entries()) {
+      if (!a.rut) guardiansWithoutRut++;
+      const pk = guardianPerson(a, m.courseId);
+      push("IncidentPerson", {
+        IncidentId: inc, PersonId: id(pk), Identifier: `${m.id}:a${i + 1}`, RefIncidentPersonTypeId: ref("incidentPersonType.apoderado"),
+        RefIncidentPersonRoleTypeId: ref(interview ? "incidentPersonRole.entrevistado" : "incidentPersonRole.asisteReunion"), Date: when, fileScanBase64: actaId ? id(`doc:${actaId}`) : null, RecordStartDateTime: start, RecordEndDateTime: null,
+      });
+    }
+    meetingsOut++;
+  }
+  if (!meetingsOut) issues.push({ severity: "aviso", message: "No hay entrevistas ni reuniones con apoderados registradas" });
+  if (withoutActa) issues.push({ severity: "error", message: `${withoutActa} entrevista(s) o reunión(es) sin el acta firmada escaneada: el validador exige el documento del apoderado` });
+  if (actaWithoutContent) issues.push({ severity: "error", message: `${actaWithoutContent} acta(s) adjunta(s) no se pudieron leer, así que no se exportan` });
+  if (guardiansWithoutRut) issues.push({ severity: "aviso", message: `${guardiansWithoutRut} asistente(s) a entrevistas o reuniones sin RUN registrado` });
 
   // ── Calendario: año escolar y suspensiones ──
   const calendar = id("cal:year");
@@ -327,9 +398,10 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
 
   const groups: Record<string, string[]> = {
     _Organizaciones: ["Organization", "OrganizationIdentifier", "OrganizationRelationship"],
+    _Comunes: ["Document"],
     _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
     _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
-    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus"],
+    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship"],
     _ComunidadEducativa: ["OrganizationPersonRole", "K12StudentEnrollment", "RoleAttendanceEvent"],
     _Cursos: ["CourseSectionSchedule"],
     _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],

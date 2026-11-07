@@ -18,7 +18,12 @@ const input = (extra: Partial<EdeInput> = {}): EdeInput => ({
   schedule: [{ subjectId: "s1", weekday: 1, period: 2, start: "08:45", end: "09:30" }],
   evaluations: [{ id: "e1", subjectId: "s1", title: "Prueba 1", date: "2026-10-06", weight: 1, signedAt: "2026-10-06T12:00:00Z", signerId: "t1", signatureKey: "654321" }, { id: "e2", subjectId: "s1", title: "Prueba 2", date: "2026-10-20", weight: 3 }],
   grades: [{ evaluationId: "e1", studentId: "a", value: 5.46 }, { evaluationId: "e2", studentId: "a", value: 4 }],
-  conduct: [{ id: "k1", studentId: "a", date: "2026-10-07", time: "10:15:00", kind: "negative", severity: "grave", description: "Agresión verbal", recordedBy: "t1", article: "Art. 42", measures: [{ id: "m1", type: "suspension", from: "2026-10-08", to: "2026-10-09" }] }, { id: "k3", studentId: "a", date: "2026-10-09", time: "11:00:00", kind: "negative", severity: "leve", description: "Atraso reiterado", recordedBy: "t1" }, { id: "k2", studentId: "a", date: "2026-10-08", kind: "positive", description: "Ayuda a un compañero", recordedBy: "t1" }],
+  conduct: [{ id: "k1", studentId: "a", date: "2026-10-07", time: "10:15:00", kind: "negative", severity: "grave", description: "Agresión verbal", recordedBy: "t1", signedAt: "2026-10-07T13:15:00Z", signatureKey: "111222", article: "Art. 42", measures: [{ id: "m1", type: "suspension", from: "2026-10-08", to: "2026-10-09" }] }, { id: "k3", studentId: "a", date: "2026-10-09", time: "11:00:00", kind: "negative", severity: "leve", description: "Atraso reiterado", recordedBy: "t1" }, { id: "k2", studentId: "a", date: "2026-10-08", kind: "positive", description: "Ayuda a un compañero", recordedBy: "t1" }],
+  meetings: [
+    { id: "m1", kind: "entrevista", courseId: "c1", studentId: "a", date: "2026-10-15", time: "16:30", description: "Rendimiento en Matemática. Acuerdos: reforzamiento", by: "t1", byTeacher: true, signedAt: "2026-10-15T20:00:00Z", signatureKey: "333444", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: ["d1"] },
+    { id: "m2", kind: "reunion", courseId: "c1", date: "2026-10-20", time: "19:00", description: "Reunión de octubre", by: "t1", byTeacher: true, signedAt: "2026-10-20T23:00:00Z", signatureKey: "555666", attendees: [{ studentId: "a", name: "María José Soto Rivas", rut: "12345678-5" }], actaIds: [] },
+  ],
+  documents: { d1: "JVBERi0xLjQK" },
   exportedAt: "2026-11-07T15:00:00Z",
   timeZone: "America/Santiago",
   ...extra,
@@ -38,7 +43,7 @@ describe("EDE", () => {
 
   it("agrupa las tablas como espera el contenedor oficial", () => {
     const { json, counts } = buildEdeJson(input(), allRefs);
-    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Evaluaciones", "_Incidentes", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
+    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
     expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45", ClassEndingTime: "09:30", ClassPeriod: "Hora 02" });
     expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((r) => r.BeginDate === "2026-10-05")).toMatchObject({ EndDate: "2026-10-05", AttendanceTermIndicator: 1, Description: "Clases del 2026-10-05" });
     expect(counts.Organization).toBe(5);
@@ -107,7 +112,7 @@ describe("EDE", () => {
   it("exporta anotaciones como incidentes e informa lo que falta", () => {
     const { json, issues } = buildEdeJson(input(), allRefs);
     const inc = table(json, "_Incidentes", "Incident");
-    expect(inc).toHaveLength(3);
+    expect(inc).toHaveLength(5);
     expect(inc[0]).toMatchObject({ IncidentTime: "10:15:00", RefIncidentBehaviorId: allRefs["incidentBehavior.negativa"] });
     expect(JSON.parse(String(inc[0]!.RegulationViolatedDescription))).toMatchObject({ ArtículoProtocolo: "Art. 42", Severidad: "grave", Procedimiento: "suspension" });
     expect(inc[2]!.RegulationViolatedDescription).toBeNull();
@@ -116,6 +121,28 @@ describe("EDE", () => {
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).toContain("1 anotación(es) sin hora");
     expect(text).toContain("sin medida disciplinaria");
+    expect(text).toContain("2 anotación(es) sin firma");
+    const reporter = table(json, "_Incidentes", "IncidentPerson").find((p) => p.Identifier === "k1:registra");
+    expect(reporter).toMatchObject({ digitalRandomKey: "111222", RefIncidentPersonTypeId: allRefs["incidentPersonType.docente"], Date: "2026-10-07T10:15:00-03:00" });
+  });
+
+  it("exporta entrevistas y reuniones con el apoderado, su relación y el acta", () => {
+    const { json, issues } = buildEdeJson(input(), allRefs);
+    const inc = table(json, "_Incidentes", "Incident").filter((r) => r.RefIncidentBehaviorId === allRefs["incidentBehavior.entrevista"] || r.RefIncidentBehaviorId === allRefs["incidentBehavior.reunion"]);
+    expect(inc).toHaveLength(2);
+    expect(inc[0]).toMatchObject({ IncidentTime: "16:30:00", IncidentReporterId: null, RegulationViolatedDescription: null });
+    const people = table(json, "_Incidentes", "IncidentPerson").filter((p) => p.IncidentId === inc[0]!.IncidentId);
+    const guardian = people.find((p) => p.RefIncidentPersonTypeId === allRefs["incidentPersonType.apoderado"])!;
+    expect(guardian).toMatchObject({ RefIncidentPersonRoleTypeId: allRefs["incidentPersonRole.entrevistado"], Date: "2026-10-15T16:30:00-03:00" });
+    const doc = table(json, "_Comunes", "Document");
+    expect(doc).toEqual([{ documentId: guardian.fileScanBase64, fileScanBase64: "JVBERi0xLjQK" }]);
+    expect(people.find((p) => p.RefIncidentPersonRoleTypeId === allRefs["incidentPersonRole.entrevistador"])).toMatchObject({ digitalRandomKey: "333444" });
+    // Una sola persona para el apoderado aunque asista a la entrevista y a la reunión.
+    const persons = table(json, "_Personas", "Person").filter((p) => p.PersonId === guardian.PersonId);
+    expect(persons).toEqual([expect.objectContaining({ FirstName: "María", MiddleName: "José", LastName: "Soto", SecondLastName: "Rivas" })]);
+    expect(table(json, "_Personas", "PersonRelationship")).toEqual([expect.objectContaining({ PersonId: guardian.PersonId, RefPersonRelationshipId: allRefs["relationship.apoderado"] })]);
+    expect(table(json, "_ComunidadEducativa", "OrganizationPersonRole").filter((r) => r.PersonId === guardian.PersonId)).toEqual([expect.objectContaining({ RoleId: allRefs["role.apoderado"] })]);
+    expect(issues.map((i) => i.message).join(" | ")).toContain("1 entrevista(s) o reunión(es) sin el acta firmada");
   });
 
   it("traduce el nivel al código de enseñanza y grado oficiales", () => {

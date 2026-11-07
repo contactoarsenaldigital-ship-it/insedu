@@ -7,6 +7,7 @@ import { exitSheets } from "./salidas";
 import { documentsState, findPerson, logbook, repo } from "./store";
 import { subsidySheets } from "./subvenciones";
 import { deliverySheets } from "./entregas";
+import { meetingSheets } from "./entrevistas";
 
 /**
  * Respaldo del libro de clases para fiscalización: todo lo registrado, incluida la bitácora, en una
@@ -83,16 +84,17 @@ export function libroSheets(courseId?: string): Sheet[] {
     {
       name: "Convivencia",
       title: `Anotaciones de convivencia escolar${scope}`,
-      columns: [...studentCols, { header: "Fecha", format: "date" }, { header: "Tipo" }, { header: "Gravedad" }, { header: "Descripción", width: 60 }, { header: "Registró", width: 24 }],
+      columns: [...studentCols, { header: "Fecha", format: "date" }, { header: "Tipo" }, { header: "Gravedad" }, { header: "Descripción", width: 60 }, { header: "Registró", width: 24 }, { header: "Firma", width: 22 }],
       rows: s.conduct.flatMap((c) => {
         const st = who(c.studentId);
-        return st ? [[...st, c.date, c.kind, c.severity ?? "", c.description, nameOf(c.recordedBy)]] : [];
+        return st ? [[...st, c.date, c.kind, c.severity ?? "", c.description, nameOf(c.recordedBy), c.signature ? `${c.signature.method}, ${when(c.signature.at)}` : ""]] : [];
       }),
     },
     ...pieSheets(courseId),
     ...subsidySheets(courseId),
     ...exitSheets(courseId),
     ...deliverySheets(courseId),
+    ...meetingSheets(courseId),
     {
       name: "Documentos adjuntos",
       title: `Documentos escaneados (el contenido se descarga desde INSEDU)${scope}`,

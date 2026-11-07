@@ -551,3 +551,6 @@ fieldset.plain:disabled .question { opacity: .75; }
 .timetable select { min-width: 120px; font: inherit; }
 .measure-form { display: grid; gap: 6px; margin-top: 6px; min-width: 240px; }
 .measure-form input, .measure-form select { font: inherit; }
+
+/* Lista de asistentes en dos columnas en pantallas anchas. */
+.check-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 16px; }

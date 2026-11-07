@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { demoSignCode } from "@/lib/verifier";
+import { DemoCode } from "@/components/DemoCode";
 import { notFound, redirect } from "next/navigation";
 import {
   can,
@@ -83,7 +83,7 @@ export default async function SubjectBook({ params, searchParams }: { params: Pr
 
       {tab === "clases" && <Lessons subject={subject} students={students} session={session} canWrite={allowed("lesson.write")} canCorrect={allowed("record.correct")} />}
       {tab === "notas" && <Grades subject={subject} students={students} canWrite={allowed("grade.write")} canCorrect={allowed("record.correct")} selected={sp.eval} session={session} />}
-      {tab === "anotaciones" && <Conduct subject={subject} students={students} canWrite={allowed("conduct.write")} canMeasure={session.person.roles.some((r) => r === "inspector" || r === "director" || r === "school_admin") || session.scope.headOfCourseIds.includes(subject.courseId)} />}
+      {tab === "anotaciones" && <Conduct subject={subject} students={students} session={session} canWrite={allowed("conduct.write")} canMeasure={session.person.roles.some((r) => r === "inspector" || r === "director" || r === "school_admin") || session.scope.headOfCourseIds.includes(subject.courseId)} />}
       {tab === "correcciones" && <Corrections courseId={subject.courseId} students={students} />}
     </main>
   );
@@ -96,12 +96,6 @@ const SIGNATURE_LABEL = {
   interno: "con verificador de demostración",
   sin: "sin verificador",
 };
-
-function DemoCode({ session }: { session: Session }) {
-  const code = demoSignCode(session);
-  if (!code) return null;
-  return <p className="notice">Demostración: su código vigente es <strong>{code}</strong> (cambia cada 30 segundos). En el piloto se firma con la app vinculada en tramites.mineduc.cl.</p>;
-}
 
 function Lessons({ subject, students, session, canWrite, canCorrect }: { subject: Subject; students: Student[]; session: Session; canWrite: boolean; canCorrect: boolean }) {
   const lessons = repo.lessonsOf(subject.id);
@@ -358,7 +352,7 @@ function GradeEditor({ subject, evaluation, students, grades, canCorrect, sessio
 
 const KIND_LABEL = { positive: "Positiva", negative: "Negativa", commendation: "Felicitación" } as const;
 
-function Conduct({ subject, students, canWrite, canMeasure }: { subject: Subject; students: Student[]; canWrite: boolean; canMeasure: boolean }) {
+function Conduct({ subject, students, session, canWrite, canMeasure }: { subject: Subject; students: Student[]; session: Session; canWrite: boolean; canMeasure: boolean }) {
   const records = repo.conductOf(subject.courseId).slice(0, 40);
   const byId = new Map(students.map((s) => [s.id, s]));
   return (
@@ -399,7 +393,13 @@ function Conduct({ subject, students, canWrite, canMeasure }: { subject: Subject
               <label htmlFor="description">Hecho observado</label>
               <textarea id="description" name="description" rows={2} required minLength={10} maxLength={500} placeholder="Describa la conducta concreta, sin juicios sobre la persona." />
             </div>
-            <button className="btn primary">Registrar</button>
+            <p className="muted">La anotación se firma con su verificador al registrarla y ya no se puede modificar.</p>
+            <DemoCode session={session} />
+            <div className="field" style={{ maxWidth: 220 }}>
+              <label htmlFor="ccode">Código de 6 dígitos</label>
+              <input id="ccode" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required />
+            </div>
+            <button className="btn primary">Registrar y firmar</button>
           </form>
         </section>
       )}
@@ -421,7 +421,7 @@ function Conduct({ subject, students, canWrite, canMeasure }: { subject: Subject
                     <td>{st ? fullName(st) : "—"}</td>
                     <td><span className={`tag ${r.kind === "negative" ? (r.severity === "leve" ? "media" : "alta") : "ok"}`}>{KIND_LABEL[r.kind]}{r.severity ? ` · ${r.severity === "gravisima" ? "gravísima" : r.severity}` : ""}</span></td>
                     <td>{r.description}</td>
-                    <td className="muted">{repo.person(r.recordedBy)?.name ?? "Docente"}</td>
+                    <td className="muted">{repo.person(r.recordedBy)?.name ?? "Docente"}{r.signature ? <><br /><span className="tag ok">Firmada</span></> : <><br /><span className="tag">Sin firma</span></>}</td>
                     <td>
                       {r.kind !== "negative" ? "—" : (
                         <>

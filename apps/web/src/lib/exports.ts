@@ -5,6 +5,7 @@ import { enrollmentSheet } from "./matricula";
 import { canRegisterExits, exitSheets } from "./salidas";
 import type { Session } from "./session";
 import { canManageDeliveries, deliverySheets } from "./entregas";
+import { canRegisterMeeting, meetingSheets } from "./entrevistas";
 import { canReadSubsidy, isMonth, monthlySheet } from "./subvenciones";
 import { repo } from "./store";
 
@@ -71,6 +72,11 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  entrevistas: {
+    label: "Entrevistas y reuniones con apoderados",
+    allowed: (s, p) => (p.courseId ? canRegisterMeeting(s, p.courseId) : s.person.roles.some((r) => r === "director" || r === "school_admin" || r === "inspector")),
+    build: ({ courseId }) => meetingSheets(courseId)[0]!,
+  },
   entregas: {
     label: "Registro de entrega de documentación",
     allowed: (s) => canManageDeliveries(s),
@@ -176,10 +182,10 @@ export const EXPORTS: Record<string, ExportDef> = {
       return {
         name: "Anotaciones",
         title: `Anotaciones · ${t.course.name}`,
-        columns: [{ header: "Fecha", format: "date", width: 12 }, { header: "RUN" }, { header: "Estudiante", width: 30 }, { header: "Tipo" }, { header: "Gravedad" }, { header: "Hecho", width: 60 }, { header: "Registrado por", width: 22 }],
+        columns: [{ header: "Fecha", format: "date", width: 12 }, { header: "RUN" }, { header: "Estudiante", width: 30 }, { header: "Tipo" }, { header: "Gravedad" }, { header: "Hecho", width: 60 }, { header: "Registrado por", width: 22 }, { header: "Firma", width: 20 }],
         rows: repo.conductOf(t.course.id).map((r) => {
           const st = studentById(r.studentId);
-          return [r.date, st ? formatRut(st.rut) : null, st ? studentName(st) : null, KIND_LABEL[r.kind], r.severity ? SEVERITY_LABEL[r.severity] : null, r.description, repo.person(r.recordedBy)?.name ?? "Docente"];
+          return [r.date, st ? formatRut(st.rut) : null, st ? studentName(st) : null, KIND_LABEL[r.kind], r.severity ? SEVERITY_LABEL[r.severity] : null, r.description, repo.person(r.recordedBy)?.name ?? "Docente", r.signature ? `${r.signature.method === "mineduc" ? "Verificador Mineduc" : "Demostración"}, ${r.signature.at.slice(0, 10)}` : "Sin firma"];
         }),
       };
     },

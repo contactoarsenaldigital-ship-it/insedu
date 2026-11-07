@@ -78,8 +78,14 @@ negativas registran el artículo del reglamento interno y sus medidas disciplina
 Cancelación de matrícula y expulsión solo las registra dirección. Las medidas las anotan inspectoría, dirección, administración y
 el profesor jefe del curso.
 
-**Pendiente:** firma de anotaciones, entrevistas con apoderados, PIE, salidas, entregas, documentos en
-base64 (Document), apoderados (PersonRelationship), código de grado de `listValidationData`, y correr `check`.
+**Quinta etapa (hecha):** quien registra una anotación la firma con su verificador al guardarla; sin firma válida no se guarda
+(IncidentPerson del docente con `digitalRandomKey`). Entrevistas y reuniones con apoderados en `/entrevistas`: quien conduce firma
+al guardar, y el acta firmada por el apoderado se adjunta escaneada. Se exportan como Incident «Entrevista» o «Reunión con
+apoderados», con el apoderado (PersonRelationship «Apoderado(a)/Tutor(a)» y rol «Padre, madre o apoderado») y el acta en base64
+(Document, enlazada desde `IncidentPerson.fileScanBase64`), como exige fn8F3. En la reunión asiste el apoderado titular de la
+matrícula de cada estudiante marcado. Supuesto por validar: que la Superintendencia acepte el acta escaneada como firma del apoderado.
+
+**Pendiente:** PIE, salidas, entregas, código de grado de `listValidationData`, y correr `check`.
 
 ## Registro de matrícula
 

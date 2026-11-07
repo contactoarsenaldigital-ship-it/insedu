@@ -7,7 +7,7 @@ import { getSession } from "@/lib/session";
 import { withState } from "@/lib/state";
 import { documentsState, logEvent } from "@/lib/store";
 
-const KINDS: DocumentOwnerKind[] = ["matricula", "salida", "subvencion", "entrega", "institucional"];
+const KINDS: DocumentOwnerKind[] = ["matricula", "salida", "subvencion", "entrega", "institucional", "entrevista"];
 
 /** Vuelve a la página del registro; los mensajes nunca llevan nombres ni RUN. */
 function back(path: string, msg: { ok?: string; error?: string }): never {
@@ -22,7 +22,7 @@ async function uploadImpl(f: FormData) {
   if (!session) redirect("/ingresar");
   const owner = KINDS.includes(kind) ? ownerOf(kind, ownerId) : null;
   if (!owner) redirect("/");
-  if (!canUploadDocument(session, kind)) back(owner.back, { error: "Su perfil no puede adjuntar documentos a este registro." });
+  if (!canUploadDocument(session, kind, ownerId)) back(owner.back, { error: "Su perfil no puede adjuntar documentos a este registro." });
 
   const file = f.get("file");
   const label = String(f.get("label") ?? "").trim().slice(0, 120);

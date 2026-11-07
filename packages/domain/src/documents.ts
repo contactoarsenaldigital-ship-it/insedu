@@ -4,7 +4,7 @@
  * Los documentos no se borran: son respaldo ante fiscalización. Uno equivocado se reemplaza subiendo otro.
  */
 
-export type DocumentOwnerKind = "matricula" | "salida" | "subvencion" | "entrega" | "institucional";
+export type DocumentOwnerKind = "matricula" | "salida" | "subvencion" | "entrega" | "institucional" | "entrevista";
 
 export type StoredDocument = {
   id: string;

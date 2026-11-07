@@ -1,4 +1,5 @@
 import type { DisciplinaryMeasure } from "./discipline";
+import type { LessonSignature } from "./gradebook";
 /** Tipos compartidos del dominio INSEDU. Identificadores como string (UUIDv7). */
 
 export type Role =
@@ -97,6 +98,8 @@ export type ConductRecord = {
   article?: string;
   /** Medidas disciplinarias aplicadas después, según el reglamento interno. */
   measures?: DisciplinaryMeasure[];
+  /** Firma de quien registró la anotación, con su verificador. */
+  signature?: LessonSignature;
 };
 
 export type HealthVisit = {

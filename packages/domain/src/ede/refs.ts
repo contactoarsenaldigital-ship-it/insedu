@@ -23,6 +23,10 @@ export type EdeRefKey =
   | "assessmentType.formativa" | "assessmentType.sumativa" | "scoreMetric.nota" | "assessmentStaffRole.estudiante"
   | "incidentBehavior.positiva" | "incidentBehavior.negativa" | "incidentPersonType.estudiante" | "incidentPersonType.docente"
   | "incidentPersonRole.estudiante" | "incidentReporterType.docente" | "incidentTime.horaClases"
+  | "incidentPersonRole.registra" | "incidentPersonType.profesional" | "incidentPersonType.apoderado"
+  | "incidentBehavior.entrevista" | "incidentBehavior.reunion"
+  | "incidentPersonRole.entrevistado" | "incidentPersonRole.entrevistador" | "incidentPersonRole.asisteReunion" | "incidentPersonRole.dirigeReunion"
+  | "relationship.apoderado" | "role.apoderado"
   | `disciplinaryAction.${DisciplinaryMeasureType}`;
 
 import { MEASURE_LABEL, type DisciplinaryMeasureType } from "../discipline";
@@ -70,6 +74,17 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "incidentPersonRole.estudiante": { lookup: "RefIncidentPersonRoleType del estudiante anotado: por confirmar" },
   "incidentReporterType.docente": { lookup: "RefIncidentReporterType del docente que registra: por confirmar" },
   "incidentTime.horaClases": { lookup: "RefIncidentTimeDescriptionCode (durante la jornada): por confirmar", note: "fn8F2 lo exige" },
+  "incidentPersonRole.registra": { lookup: "RefIncidentPersonRoleType de quien registra la anotación: por confirmar", note: "fn8F2 exige el rol en cada IncidentPerson" },
+  "incidentPersonType.profesional": { lookup: "RefIncidentPersonType.Description = 'Profesional de la educación'", note: "fn8F2" },
+  "incidentPersonType.apoderado": { lookup: "RefIncidentPersonType.Description = 'Apoderado'", note: "fn8F2, fn8F3" },
+  "incidentBehavior.entrevista": { lookup: "RefIncidentBehavior.Description = 'Entrevista'", note: "fn8F0, fn8F2, fn8F3" },
+  "incidentBehavior.reunion": { lookup: "RefIncidentBehavior.Description = 'Reunión con apoderados'", note: "fn8F0, fn8F2, fn8F3" },
+  "incidentPersonRole.entrevistado": { lookup: "RefIncidentPersonRoleType.Description = 'Entrevistado'", note: "fn8F2" },
+  "incidentPersonRole.entrevistador": { lookup: "RefIncidentPersonRoleType.Description = 'Entrevistador'", note: "fn8F2" },
+  "incidentPersonRole.asisteReunion": { lookup: "RefIncidentPersonRoleType.Description = 'Asiste a reunión de apoderados'", note: "fn8F2" },
+  "incidentPersonRole.dirigeReunion": { lookup: "RefIncidentPersonRoleType.Description = 'Dirige reunión de apoderados'", note: "fn8F2" },
+  "relationship.apoderado": { lookup: "RefPersonRelationship.Code = 'Apoderado(a)/Tutor(a)'", note: "fn8F3" },
+  "role.apoderado": { lookup: "Role.Name = 'Padre, madre o apoderado'", note: "fn8F3" },
 };
 
 export type EdeRefs = Partial<Record<EdeRefKey, number>>;

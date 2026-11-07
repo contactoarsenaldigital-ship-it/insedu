@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { zipFiles } from "@insedu/domain/server";
-import { edeExport } from "@/lib/ede";
+import { edeDocuments, edeExport } from "@/lib/ede";
 import { canExportMineduc, getSession } from "@/lib/session";
 import { readState, saveState } from "@/lib/state";
 import { logEvent } from "@/lib/store";
@@ -14,8 +14,9 @@ export async function GET(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Ingrese para descargar." }, { status: 401 });
   if (!canExportMineduc(session)) return NextResponse.json({ error: "Solo dirección y administración exportan al EDE." }, { status: 403 });
-  const { json, issues, counts } = edeExport();
-  if (new URL(req.url).searchParams.get("informe")) return NextResponse.json({ issues, counts }, { headers: { "cache-control": "no-store" } });
+  const report = !!new URL(req.url).searchParams.get("informe");
+  const { json, issues, counts } = edeExport(report ? undefined : await edeDocuments());
+  if (report) return NextResponse.json({ issues, counts }, { headers: { "cache-control": "no-store" } });
 
   const zip = zipFiles([{ name: "ede.json", content: Buffer.from(JSON.stringify(json), "utf8") }]);
   logEvent({ actor: session.person.id, action: "exportar", entity: "ede", recordId: new Date().toISOString(), after: { counts, problemas: issues.length } });
