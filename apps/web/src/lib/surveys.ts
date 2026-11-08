@@ -128,6 +128,12 @@ const CLIMATE: Question[] = [
   { id: "idea", text: "¿Qué cambiarías para mejorar la convivencia?", type: "texto", required: false },
 ];
 
+const FAMILY: Question[] = [
+  { id: "informado", text: "Me siento informado o informada sobre el avance de mi pupilo", type: "escala", required: true },
+  { id: "acogida", text: "El colegio me escucha cuando planteo una inquietud", type: "escala", required: true },
+  { id: "tema", text: "¿Qué tema le gustaría tratar en la próxima reunión?", type: "opcion", required: false, options: ["Convivencia", "Rendimiento", "Salud y bienestar", "Salidas pedagógicas"] },
+];
+
 const IDEAS = [
   "Más actividades en los recreos",
   "Que los profesores intervengan antes cuando hay burlas",
@@ -268,5 +274,24 @@ export function initSurveys(): State {
     responses.push({ id: responseId(climate.id, st.id), surveyId: climate.id, respondentId: st.id, at: at(100 - (responses.length % 90)), answers: generalAnswers(CLIMATE, rnd, IDEAS) });
   }
 
-  return { surveys: [socio, climate], responses };
+  // El apoderado de la demostración queda sin responder, para mostrar la encuesta en vivo.
+  const families: Survey = {
+    id: "encuesta-familias-demo",
+    kind: "general",
+    title: "Comunicación con las familias de 5° Básico A",
+    intro: "Encuesta breve y anónima para mejorar la comunicación entre el colegio y las familias.",
+    audience: "apoderados",
+    courseId: "course-1",
+    questions: FAMILY,
+    anonymous: true,
+    status: "abierta",
+    createdBy: "teacher-1",
+    createdAt: at(72),
+  };
+  course1.filter((id) => id !== "student-001" && rnd() < 0.7).forEach((id, i) => {
+    const respondent = `guardian-of-${id}`;
+    responses.push({ id: responseId(families.id, respondent), surveyId: families.id, respondentId: respondent, at: at(70 - i), answers: generalAnswers(FAMILY, rnd) });
+  });
+
+  return { surveys: [socio, climate, families], responses };
 }

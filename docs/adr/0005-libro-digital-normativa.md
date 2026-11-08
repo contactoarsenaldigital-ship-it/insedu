@@ -136,7 +136,7 @@ matrícula, además de entrevistas, reuniones, entregas e instrumentos con sus a
 **Pendiente para operar con datos reales:**
 - Formularios para capturar lo que hoy solo llena la siembra: domicilio estructurado y RUN del apoderado, dirección, correo, teléfono y jornada del establecimiento,
   fechas del año escolar, documento de matrícula definitiva y firma de la asistencia diaria.
-- fn6F0 solo descuenta días marcados como `EmergencyDay`, `Holiday`, `Strike` o `TeacherOnlyDay`, y hoy las suspensiones se informan como `Other`.
+- Las suspensiones se informan como `EmergencyDay`, uno de los tipos que fn6F0 descuenta. Falta marcar feriados, y capturar el número, fecha y escaneo de la resolución (fn6E3).
 - fn5E0 suma el retiro dentro de los totales de la clase si ocurre en plena hora, mientras fn0FB exige ese evento: los retiros a mitad de un bloque quedarían rechazados.
   Hay que consultarlo con la Superintendencia.
 - Confirmar las interpretaciones del diccionario.

@@ -66,7 +66,7 @@ export type EdeInput = {
   lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
   /** Horario: una fila por asignatura, día y hora de la jornada. */
   schedule: { subjectId: string; weekday: 1 | 2 | 3 | 4 | 5; period: number; start: string; end: string }[];
-  suspensions: { id: string; date: string; reason: string; authorization: string }[];
+  suspensions: { id: string; date: string; reason: string; authorization: string; rexNumber?: string; rexDate?: string; rexDocId?: string }[];
   /** Evaluaciones sumativas por asignatura; el peso es el coeficiente de la nota. */
   evaluations: { id: string; subjectId: string; title: string; date: string; weight: number; signedAt?: string; signerId?: string; signatureKey?: string }[];
   grades: { evaluationId: string; studentId: string; value: number }[];
@@ -652,7 +652,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     if (firstDay && lastDay) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(`sess:course:${c.id}`), OrganizationCalendarId: id(`cal:course:${c.id}`), BeginDate: firstDay, EndDate: lastDay, FirstInstructionDate: firstDay, LastInstructionDate: lastDay, Description: `Periodo escolar ${input.school.year}`, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
   }
   for (const s of input.suspensions) {
-    push("OrganizationCalendarEvent", { OrganizationCalendarEventId: id(`calev:${s.id}`), OrganizationCalendarId: calendar, Name: s.reason.slice(0, 30), EventDate: s.date, RefCalendarEventType: ref("calendarEvent.suspension"), indicadorSinClases: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("OrganizationCalendarEvent", { OrganizationCalendarEventId: id(`calev:${s.id}`), OrganizationCalendarId: calendar, Name: s.reason.slice(0, 30), EventDate: s.date, RefCalendarEventType: ref("calendarEvent.suspension"), indicadorSinClases: 1, rexNumber: s.rexNumber ?? null, rexDate: s.rexDate ?? null, fileScanBase64: s.rexDocId ? documentRow([s.rexDocId]) : null, RecordStartDateTime: start, RecordEndDateTime: null });
   }
 
   // fn3F9: IncidentPerson.Date es una fecha corta. La hora del hecho queda en Incident.IncidentTime.

@@ -54,6 +54,10 @@ export type SchoolDayEvent = {
   authorization: string;
   /** Fecha o calendario de recuperación aprobado. */
   recovery?: string;
+  /** Resolución que autoriza la suspensión y su respaldo escaneado (validación fn6E3 del EDE). */
+  rexNumber?: string;
+  rexDate?: string;
+  rexScanned?: boolean;
   by: string;
   at: string;
 };

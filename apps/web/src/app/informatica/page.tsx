@@ -59,7 +59,7 @@ export default async function ITPage() {
       <section className="section">
         <h2>Estándar de Datos para la Educación (EDE)</h2>
         <p>Archivo <code>json.zip</code> en el formato que lee el contenedor oficial del Mineduc (<code>edemineduc/etl</code>: comandos <code>parse</code>, <code>insert</code> y <code>check</code>).</p>
-        <p className="notice warn">Primera etapa: establecimiento, cursos, asignaturas, estudiantes, matrícula, número de lista, asistencia diaria y por clase, y suspensiones. Incluye el horario, las evaluaciones con sus notas y las anotaciones. Aún faltan PIE, salidas, entregas y documentos, y el diccionario oficial de códigos.</p>
+        <p className="notice">Incluye establecimiento, cursos, matrícula, asistencia, horario, evaluaciones, anotaciones, entrevistas, salidas, entregas y documentos. El informe de abajo avisa lo que falta antes de cargar el archivo.</p>
         <ul>{ede.issues.map((i, k) => <li key={k}><span className={`tag ${i.severity === "error" ? "alta" : "media"}`}>{i.severity}</span> {i.message}</li>)}</ul>
         <p className="muted">{Object.entries(ede.counts).map(([t, n]) => `${t}: ${n}`).join(" · ")}</p>
         <p><a href="/informatica/datos-ede">Datos para el EDE</a>: capacidad autorizada de cada curso y títulos de los docentes.</p>
@@ -69,7 +69,7 @@ export default async function ITPage() {
       <section className="section">
         <h2>Respaldo y trazabilidad del libro de clases</h2>
         <p>Descarga en Excel todo lo registrado en el libro, para entregarlo ante una fiscalización. La salud y Salvaguarda no se incluyen.</p>
-        <p className="notice warn">Todavía no es el formato del Estándar de Datos para la Educación que exige la Circular de registros: ese traspaso está pendiente.</p>
+        <p className="notice">Este respaldo sirve para una revisión en pantalla o en papel. El archivo en el formato del Estándar de Datos para la Educación se descarga en la sección anterior.</p>
         <form action="/api/libro-respaldo" method="get" className="req-actions" style={{ alignItems: "flex-end", marginTop: 12 }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor="curso">Curso</label>

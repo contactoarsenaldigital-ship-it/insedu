@@ -23,6 +23,14 @@ export type Thread = { id: string; a: string; b: string; subject: string; messag
 type State = { announcements: Announcement[]; threads: Thread[] };
 const g = globalThis as unknown as { __insedu_msgs?: State };
 
+/** Próximo jueves, en palabras: los comunicados siempre se ven vigentes tras reiniciar. */
+function nextThursday(): string {
+  const d = new Date();
+  do d.setDate(d.getDate() + 1);
+  while (d.getDay() !== 4);
+  return new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "long" }).format(d);
+}
+
 export function initMessages(): State {
   const s = school();
   const course1 = s.students.filter((x) => x.courseId === "course-1");
@@ -35,8 +43,8 @@ export function initMessages(): State {
       {
         id: "an-reunion",
         courseId: "course-1",
-        title: "Reunión de apoderados: jueves 22 de octubre, 19:00",
-        body: "Revisaremos el avance del semestre y la salida pedagógica de noviembre. Se ruega confirmar asistencia.",
+        title: `Reunión de apoderados: jueves ${nextThursday()}, 19:00`,
+        body: "Revisaremos el avance del semestre y la próxima salida pedagógica. Se ruega confirmar asistencia.",
         requiresAck: true,
         authorId: "teacher-1",
         at: new Date(Date.now() - 2 * 864e5).toISOString(),

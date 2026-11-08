@@ -200,7 +200,8 @@ function GuardianView({ studentId }: { studentId: string }) {
   const s = school();
   const lastWeek = s.schoolDays.slice(-5);
   const att = s.attendance.filter((a) => a.studentId === st.id && lastWeek.includes(a.date));
-  const grades = s.grades.filter((g) => g.studentId === st.id).slice(-4);
+  // La nota más reciente de cada asignatura, y de esas las cuatro últimas.
+  const grades = [...new Map([...s.grades].filter((g) => g.studentId === st.id).sort((a, b) => a.date.localeCompare(b.date)).map((g) => [g.subject, g])).values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
   const positives = s.conduct.filter((c) => c.studentId === st.id && lastWeek.includes(c.date));
   return (
     <main className="wrap">

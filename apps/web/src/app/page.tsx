@@ -6,6 +6,12 @@ import { HeroVideo } from "@/components/HeroVideo";
 
 type Role = { href: string; icon: IconName; eyebrow: string; title: string; text: string };
 
+const SEALS = [
+  { href: "/salvaguarda/indicadores", icon: "chart", title: "Una mirada integral de cada estudiante", text: "Rendimiento, asistencia, conducta y salud en un solo tablero, por nivel, curso y estudiante, con acceso restringido." },
+  { href: "/refuerzos", icon: "star", title: "Refuerzo positivo que motiva", text: "Puntos, niveles, insignias y metas cooperativas que reconocen el progreso personal." },
+  { href: "/biblioteca", icon: "book", title: "Biblioteca en línea", text: "Inventario con el teléfono, stock al instante y control de quién tiene cada ejemplar y cuándo lo devuelve." },
+];
+
 const GROUPS: { title: string; note: string; roles: Role[] }[] = [
   {
     title: "Docentes",
@@ -73,6 +79,19 @@ export default async function Home() {
           </div>
           </div>
           <HeroVideo />
+        </div>
+      </section>
+      <section className="wrap section" aria-labelledby="sello">
+        <h2 id="sello" style={{ marginTop: 8 }}>Lo que distingue a INSEDU</h2>
+        <div className="grid">
+          {SEALS.map((c) => (
+            <Link key={c.href} href={c.href} className="card">
+              <span className="card-icon"><Icon name={c.icon} /></span>
+              <h3>{c.title}</h3>
+              <span className="muted">{c.text}</span>
+              <span className="go">Ver en la demostración <Icon name="arrow" size={16} /></span>
+            </Link>
+          ))}
         </div>
       </section>
       <div className="wrap" id="recorrido">

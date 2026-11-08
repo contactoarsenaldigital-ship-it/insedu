@@ -1,9 +1,11 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { safeFileName, type DocumentOwnerKind, type GuardianMeeting, type InstitutionalKind, computeDv, DEFAULT_BELLS, blocksOn, WEEKDAYS, mulberry32, uuidv7, withOffset, type DegreeType, type DegreeVerification, type DisciplinaryMeasureType, type LessonSignature, type LessonStatus } from "@insedu/domain";
+import { subsidySnapshot, safeFileName, type DocumentOwnerKind, type GuardianMeeting, type InstitutionalKind, computeDv, DEFAULT_BELLS, blocksOn, WEEKDAYS, mulberry32, uuidv7, withOffset, type DegreeType, type DegreeVerification, type DisciplinaryMeasureType, type LessonSignature, type LessonStatus } from "@insedu/domain";
 import { activeStudents, school } from "./demo";
+import { appendEvent } from "@insedu/domain/server";
 import { ensureEnrollments } from "./matricula";
-import { deliveriesState, documentsState, edeDataState, exitsState, meetingsState, repo, STAFF, timetableState } from "./store";
+import { courseSheet, subsidyMonths, subsidyToday } from "./subvenciones";
+import { deliveriesState, documentsState, edeDataState, exitsState, logbook, meetingsState, repo, STAFF, subsidyState, timetableState } from "./store";
 
 /**
  * Registros ficticios de la demostración para que la exportación al EDE se vea completa: horario, clases firmadas,
@@ -89,7 +91,42 @@ const minusMinutes = (time: string, minutes: number) => {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
 
+/** Un retiro de matrícula, un excedente y una suspensión de clases, coherentes con la asistencia y las notas. */
+function seedCases(): string {
+  const s = school();
+  const day = (n: number) => s.schoolDays[Math.max(0, s.schoolDays.length - 1 - n)]!;
+  const records = new Map(ensureEnrollments().map((r) => [r.id, r]));
+  const adminAt = (date: string) => localInstant(date, "11:00");
+
+  const leaving = s.students.filter((x) => x.courseId === "course-3")[10]!;
+  const leftOn = day(20);
+  leaving.withdrawnOn = leftOn;
+  const after = (studentId: string, date: string) => studentId === leaving.id && date > leftOn;
+  s.attendance = s.attendance.filter((a) => !after(a.studentId, a.date));
+  s.grades = s.grades.filter((g) => !after(g.studentId, g.date));
+  s.conduct = s.conduct.filter((c) => !after(c.studentId, c.date));
+  const leavingRecord = records.get(leaving.id)!;
+  leavingRecord.withdrawal = { date: leftOn, reason: "traslado", detail: "Traslado a otro establecimiento por cambio de domicilio de la familia.", evidence: "Declaración del apoderado N° 12, archivada en secretaría", by: "admin-1", at: adminAt(leftOn) };
+  leavingRecord.notes.push({ at: adminAt(leftOn), by: "admin-1", text: "Se entregó al apoderado el certificado de traslado." });
+
+  const surplus = records.get(s.students.filter((x) => x.courseId === "course-4")[5]!.id)!;
+  surplus.condition = "excedente";
+  surplus.resolution = "Resolución Exenta N° 2145 de la Seremi (ficticia)";
+
+  let n = 14;
+  while (s.grades.some((g) => g.date === day(n))) n++;
+  const suspended = day(n);
+  s.attendance = s.attendance.filter((a) => a.date !== suspended);
+  s.conduct = s.conduct.filter((c) => c.date !== suspended);
+  const { events } = subsidyState();
+  const rexDate = day(n + 1);
+  events.push({ id: uuidv7(), date: suspended, kind: "suspension", reason: "Corte programado de agua en el sector", authorization: "Resolución Exenta N° 1876 de la Seremi (ficticia)", recovery: "Sábado siguiente, calendario aprobado", rexNumber: "1876", rexDate, rexScanned: true, by: "director-1", at: adminAt(rexDate) });
+  events.push({ id: uuidv7(), date: day(6), courseId: "course-2", kind: "cambio_actividad", reason: "Visita pedagógica al museo", authorization: "Aviso al Departamento Provincial N° 88 (ficticio)", by: "director-1", at: adminAt(day(8)) });
+  return suspended;
+}
+
 export function seedEdeDemo() {
+  const suspended = seedCases();
   const s = school();
   const r = mulberry32(4242);
   const key = () => String(100000 + Math.floor(r() * 900000));
@@ -120,8 +157,10 @@ export function seedEdeDemo() {
   // Clases firmadas y asistencia diaria firmada: mismo estado que el registro diario
   const status = new Map(s.attendance.map((a) => [`${a.studentId}|${a.date}`, a.status as LessonStatus]));
   for (const date of s.schoolDays) {
+    if (date === suspended) continue;
     for (const c of s.courses) {
-      const pupils = activeStudents().filter((x) => x.courseId === c.id);
+      // Quien se retiró sigue en las listas hasta el día de su baja.
+      const pupils = s.students.filter((x) => x.courseId === c.id && (!x.withdrawnOn || date <= x.withdrawnOn));
       data.dailySignatures.push({ id: uuidv7(), courseId: c.id, date, by: c.headTeacherId, at: localInstant(date, "09:25"), key: key() });
       for (const subject of repo.subjects().filter((x) => x.courseId === c.id)) {
         for (const block of blocksOn(timetable.slots, subject.id, date)) {
@@ -162,6 +201,33 @@ export function seedEdeDemo() {
   });
 
   seedCommunity(seal);
+  seedDeclarations();
+  seedLogbook();
+}
+
+/** Declaraciones de asistencia de los meses ya cerrados. */
+function seedDeclarations() {
+  const today = subsidyToday();
+  const courses = school().courses;
+  for (const month of subsidyMonths().filter((m) => m < today.slice(0, 7))) {
+    const [y, m] = month.split("-").map(Number);
+    const declaredOn = new Date(Date.UTC(y!, m!, 5, 12)).toISOString().slice(0, 10);
+    subsidyState().declarations.push({
+      id: uuidv7(), month, declaredOn, certificate: `Certificado SIGE N° ${48_000 + m! * 13} (ficticio)`,
+      snapshot: Object.fromEntries(courses.map((c) => [c.id, subsidySnapshot(courseSheet(c.id, month))])), by: "admin-1", at: localInstant(declaredOn, "12:00"),
+    });
+  }
+}
+
+/** Actividad reciente en la bitácora, con la fecha real de cada registro. */
+function seedLogbook() {
+  const lessons = repo.subjects().flatMap((x) => repo.lessonsOf(x.id)).filter((l) => l.signature).sort((a, b) => b.signature!.at.localeCompare(a.signature!.at)).slice(0, 24);
+  const entries = [
+    ...lessons.map((l) => ({ at: l.signature!.at, input: { actor: l.teacherId, action: "firmar" as const, entity: "clase", recordId: l.id, courseId: l.courseId, after: { fecha: l.date, bloque: l.block } } })),
+    ...meetingsState().map((m) => ({ at: m.at, input: { actor: m.by, action: "firmar" as const, entity: "entrevista", recordId: m.id, courseId: m.courseId, after: { fecha: m.date } } })),
+    ...subsidyState().declarations.map((d) => ({ at: d.at, input: { actor: d.by, action: "crear" as const, entity: "declaracion_asistencia", recordId: d.id, after: { month: d.month, declaredOn: d.declaredOn } } })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+  for (const e of entries) appendEvent(logbook(), e.input, uuidv7(), e.at);
 }
 
 const INTERVIEWS: [string, string][] = [
@@ -235,6 +301,13 @@ function seedCommunity(seal: (by: string, at: string) => LessonSignature) {
   requests.push(request(4, 5, ["promocion"], day(1)));
   const dropped = request(5, 6, ["otro"], day(12));
   requests.push({ ...dropped, other: "Copia del informe de notas", withdrawn: { reason: "El apoderado ya obtuvo la copia desde su cuenta.", by: "admin-1", at: localInstant(day(11), "12:00") } });
+
+  // Quien se retiró recibe los documentos para continuar sus estudios.
+  for (const gone of s.students.filter((x) => x.withdrawnOn)) {
+    const g = guardian(gone.id);
+    const at = deliveredAt(gone.withdrawnOn!);
+    requests.push({ id: uuidv7(), folio: requests.length + 1, studentId: gone.id, courseId: gone.courseId, requester: { kind: "apoderado", name: g.name, rut: g.rut, personId: `guardian-of-${gone.id}` }, requestedOn: gone.withdrawnOn!, documents: ["logros", "personalidad"], by: "admin-1", at, delivery: { on: gone.withdrawnOn!, medium: "papel", receivedBy: g.name, receivedRut: g.rut, signature: DEMO_SIGNATURE, by: "admin-1", at, staffSignature: seal("admin-1", at) } });
+  }
 
   const publishedAt = localInstant(s.schoolDays[0]!, "09:00");
   INSTITUTIONAL.forEach(([kind, title], k) => {

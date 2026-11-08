@@ -180,7 +180,7 @@ export const OFFICIAL_REFS: EdeRefs = {
   "personLocation.physical": 13, "relationship.apoderado": 31,
   "relationship.autorizadoRetiro": 23, // interpretación: Other
   "roleStatus.enrolled": 26,
-  "calendarEvent.suspension": 4, // interpretación: Other
+  "calendarEvent.suspension": 1, // interpretación: EmergencyDay; fn6F0 solo descuenta días de ese tipo
   "assessmentType.formativa": 28, "assessmentType.sumativa": 29, "scoreMetric.nota": 1, "assessmentStaffRole.estudiante": 6,
   "incidentBehavior.entrevista": 31, "incidentBehavior.reunion": 32, "incidentBehavior.entregaRetiro": 33, "incidentBehavior.positiva": 34,
   "incidentBehavior.interesGeneral": 35, "incidentBehavior.entregaContinuidad": 36,

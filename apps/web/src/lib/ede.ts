@@ -7,7 +7,7 @@ import { allStaff, edeDataState, deliveriesState, documentsState, exitsState, fi
 import { actasOf, isTeacher } from "./entrevistas";
 import { bells, signatureWarning } from "./horario";
 import { getBlob } from "./documentos";
-import { DEMO_ENROLLMENT_SCAN, demoStaffRut } from "./demo-ede";
+import { DEMO_ENROLLMENT_SCAN, demoPdf, demoStaffRut } from "./demo-ede";
 
 /**
  * Exportación al EDE con los datos del establecimiento. Mientras no se genere el diccionario oficial de
@@ -95,8 +95,8 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
       };
     }),
     pie: pieState().students.map((p) => ({ studentId: p.id, since: p.since, until: p.until })),
-    documents: { ...signatureImages(), ...Object.fromEntries([...records.values()].filter((r) => r.enrollmentScan).map((r) => [`matricula-ficticia:${r.id}`, DEMO_ENROLLMENT_SCAN])), ...(documents ?? Object.fromEntries(blobDocIds().map((id) => [id, "(sin cargar)"]))) },
-    suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
+    documents: { ...signatureImages(), ...Object.fromEntries(subsidyState().events.filter((e) => e.rexScanned).map((e) => [`resolucion-ficticia:${e.id}`, demoPdf(`Resolución ${e.rexNumber}`).toString("base64")])), ...Object.fromEntries([...records.values()].filter((r) => r.enrollmentScan).map((r) => [`matricula-ficticia:${r.id}`, DEMO_ENROLLMENT_SCAN])), ...(documents ?? Object.fromEntries(blobDocIds().map((id) => [id, "(sin cargar)"]))) },
+    suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization, rexNumber: e.rexNumber, rexDate: e.rexDate, rexDocId: e.rexScanned ? `resolucion-ficticia:${e.id}` : undefined })),
     exportedAt: new Date().toISOString(),
     timeZone: s.timeZone || "America/Santiago",
   };
