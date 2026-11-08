@@ -1,5 +1,6 @@
 import "server-only";
 import { can, formatRut, maskRut, weightedAverage, type Alert, type CellValue, type LessonStatus, type Sheet, type SheetColumn, type Student } from "@insedu/domain";
+import { canManageLibrary, inventorySheet, libraryToday, loansSheet } from "./biblioteca";
 import { reportFor, school, studentById } from "./demo";
 import { enrollmentSheet } from "./matricula";
 import { canRegisterExits, exitSheets } from "./salidas";
@@ -72,6 +73,8 @@ const readsCourse = (s: Session, p: ExportParams) =>
 const leads = (s: Session) => s.person.roles.some((r) => r === "director" || r === "school_admin");
 
 export const EXPORTS: Record<string, ExportDef> = {
+  biblioteca_inventario: { label: "Inventario de biblioteca", allowed: (s) => canManageLibrary(s), build: () => inventorySheet() },
+  biblioteca_prestamos: { label: "Préstamos de biblioteca", allowed: (s) => canManageLibrary(s), build: () => loansSheet(libraryToday()) },
   entrevistas: {
     label: "Entrevistas y reuniones con apoderados",
     allowed: (s, p) => (p.courseId ? canRegisterMeeting(s, p.courseId) : s.person.roles.some((r) => r === "director" || r === "school_admin" || r === "inspector")),

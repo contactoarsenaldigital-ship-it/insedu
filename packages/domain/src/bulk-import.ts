@@ -63,6 +63,7 @@ export const STAFF_ROLE_ALIASES: Record<string, Role> = {
   enfermeria: "nurse", enfermero: "nurse", enfermera: "nurse", tens: "nurse",
   pie: "pie_professional", "profesional pie": "pie_professional", "educador diferencial": "pie_professional", "educadora diferencial": "pie_professional", fonoaudiologo: "pie_professional", fonoaudiologa: "pie_professional",
   salvaguarda: "safeguarding_lead", "encargado de convivencia": "safeguarding_lead", "encargada de convivencia": "safeguarding_lead",
+  biblioteca: "librarian", bibliotecario: "librarian", bibliotecaria: "librarian",
   direccion: "director", director: "director", directora: "director",
   administracion: "school_admin", administrativo: "school_admin", administrativa: "school_admin",
 };

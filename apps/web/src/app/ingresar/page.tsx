@@ -18,7 +18,7 @@ const ERRORS: Record<string, string> = {
 
 const GROUPS: { title: string; roles: Role[] }[] = [
   { title: "Docentes", roles: ["teacher", "head_teacher"] },
-  { title: "Dirección y gestión", roles: ["director", "inspector", "school_admin", "gatekeeper"] },
+  { title: "Dirección y gestión", roles: ["director", "inspector", "school_admin", "gatekeeper", "librarian"] },
   { title: "Bienestar y protección", roles: ["nurse", "psychologist", "counselor", "pie_professional", "social_worker", "safeguarding_lead"] },
   { title: "Estudiantes y familias", roles: ["student", "guardian_academic"] },
 ];

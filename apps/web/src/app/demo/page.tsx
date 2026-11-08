@@ -19,7 +19,7 @@ export default async function DemoAdmin({ searchParams }: { searchParams: Promis
       {allowed ? (
         <form action={reset} className="card">
           <h3>Reiniciar la demostración</h3>
-          <p className="muted" style={{ margin: 0 }}>Borra clases, notas, anotaciones, canjes, mensajes y casos registrados, y vuelve a generar el colegio ficticio con sus fichas, domicilios, contactos, títulos, horario, clases firmadas, entrevistas, entregas e instrumentos. Útil antes de cada presentación.</p>
+          <p className="muted" style={{ margin: 0 }}>Borra clases, notas, anotaciones, canjes, mensajes y casos registrados, y vuelve a generar el colegio ficticio con sus fichas, domicilios, contactos, títulos, horario, clases firmadas, entrevistas, entregas, instrumentos y biblioteca. Útil antes de cada presentación.</p>
           <div className="field">
             <label htmlFor="confirm">Escriba REINICIAR para confirmar</label>
             <input id="confirm" name="confirm" autoComplete="off" required />

@@ -16,6 +16,7 @@ export type Role =
   | "social_worker"
   | "nurse"
   | "safeguarding_lead"
+  | "librarian"
   | "guardian_academic"
   | "guardian_financial"
   | "student";
@@ -34,6 +35,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   social_worker: "Trabajo social",
   nurse: "Enfermería",
   safeguarding_lead: "Encargado de Salvaguarda",
+  librarian: "Biblioteca",
   guardian_academic: "Apoderado académico",
   guardian_financial: "Apoderado financiero",
   student: "Estudiante",

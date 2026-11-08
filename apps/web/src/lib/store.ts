@@ -1,6 +1,6 @@
 import "server-only";
 import { appendEvent, type LogbookEvent, type LogbookInput } from "@insedu/domain/server";
-import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type BellPeriod, type ScheduleSlot, type GuardianMeeting, type CourseCapacity, type StaffDegree, type DailySignature, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
+import { SUBJECTS, uuidv7, type AuthorizedPickup, type ConductRecord, type CourseExit, type EnrollmentRecord, type StudentExit, type SchoolDayEvent, type SubsidyCorrection, type SubsidyDeclaration, type StoredDocument, type DocumentRequest, type InstitutionalDoc, type BellPeriod, type ScheduleSlot, type GuardianMeeting, type CourseCapacity, type StaffDegree, type DailySignature, type LibraryCopy, type LibraryItem, type LibraryLoan, type PieEntry, type PieStudent, type PieTeamMember, type Correction, type Evaluation, type GradeEntry, type Lesson } from "@insedu/domain";
 import { accountById, accountStaff, personOf } from "./accounts";
 import { school, activeStudents } from "./demo";
 import type { LibroRepository, Person, Subject } from "./repository";
@@ -40,6 +40,7 @@ export const STAFF: Person[] = [
   { id: "pie-1", name: "Natalia Vera", roles: ["pie_professional"], description: "Educadora diferencial · Programa de Integración Escolar" },
   { id: "sg-1", name: "Verónica Díaz", roles: ["safeguarding_lead"], description: "Encargada de Salvaguarda (titular)" },
   { id: "sg-2", name: "Patricio Reyes", roles: ["counselor"], description: "Orientador · suplente formal de Salvaguarda" },
+  { id: "librarian-1", name: "Cecilia Bravo", roles: ["librarian"], description: "Encargada de biblioteca" },
 ];
 
 /** Apoderado/a de un estudiante (uno por estudiante en el colegio ficticio). */
@@ -128,6 +129,10 @@ type State = {
   staffDegrees: StaffDegree[];
   /** Firma de la asistencia diaria de cada curso. */
   dailySignatures: DailySignature[];
+  /** Biblioteca (ver lib/biblioteca). */
+  libraryItems: LibraryItem[];
+  libraryCopies: LibraryCopy[];
+  libraryLoans: LibraryLoan[];
 };
 
 export function initStore(): State {
@@ -149,7 +154,7 @@ export function initStore(): State {
     }
     g.id = `${id}::${g.studentId}`; // id estable: evaluación + estudiante
   }
-  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [], courseCapacities: [], staffDegrees: [], dailySignatures: [] };
+  return { subjects, evaluations: [...evaluations.values()], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [], courseCapacities: [], staffDegrees: [], dailySignatures: [], libraryItems: [], libraryCopies: [], libraryLoans: [] };
 }
 
 const g = globalThis as unknown as { __insedu_store?: State };
@@ -174,6 +179,15 @@ export function deliveriesState() {
 export const documentsState = (): StoredDocument[] => (state().documents ??= []);
 
 export const meetingsState = (): GuardianMeeting[] => (state().meetings ??= []);
+
+export function libraryState() {
+  const st = state();
+  return {
+    get items() { return (st.libraryItems ??= []); },
+    get copies() { return (st.libraryCopies ??= []); },
+    get loans() { return (st.libraryLoans ??= []); },
+  };
+}
 
 export function edeDataState() {
   const st = state();

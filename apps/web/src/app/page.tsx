@@ -32,6 +32,7 @@ const GROUPS: { title: string; note: string; roles: Role[] }[] = [
     roles: [
       { href: "/panel/direccion", icon: "chart", eyebrow: "Dirección", title: "¿Cómo está el colegio?", text: "Comparación por curso en las tres dimensiones." },
       { href: "/escanear", icon: "scan", eyebrow: "Portería e inspectoría", title: "Escanear credenciales", text: "Código de barras con el RUT, desde el teléfono, con o sin red." },
+      { href: "/biblioteca", icon: "book", eyebrow: "Biblioteca", title: "Biblioteca en línea", text: "Escanee el código con el teléfono, controle el stock y sepa quién tiene cada ejemplar y cuándo lo devuelve." },
       { href: "/informatica", icon: "download", eyebrow: "Encargado de informática", title: "Exportación MINEDUC", text: "Archivos de asistencia y notas con informe de consistencia." },
     ],
   },
