@@ -56,7 +56,7 @@ describe("EDE", () => {
 
   it("agrupa las tablas como espera el contenedor oficial", () => {
     const { json, counts } = buildEdeJson(input(), allRefs);
-    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_Intervenciones", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
+    expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
     expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45", ClassEndingTime: "09:30", ClassPeriod: "Hora 02" });
     expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((r) => r.BeginDate === "2026-10-05")).toMatchObject({ EndDate: "2026-10-05", AttendanceTermIndicator: 1, Description: "Clases del 2026-10-05" });
     expect(counts.Organization).toBe(5);
@@ -194,7 +194,7 @@ describe("EDE", () => {
     expect(receiver).toMatchObject({ RefIncidentPersonTypeId: allRefs["incidentPersonType.apoderado"] });
     expect(table(json, "_Comunes", "Document").find((d) => d.documentId === receiver.fileScanBase64)).toMatchObject({ fileScanBase64: "iVBORw0KGgoB" });
     expect(table(json, "_Personas", "PersonStatus").find((s) => s.RefPersonStatusTypeId === allRefs["personStatus.retirado"])).toMatchObject({ StatusStartDate: "2026-09-30" });
-    expect(table(json, "_Intervenciones", "PersonProgramParticipation")).toEqual([expect.objectContaining({ ParticipationStatus: "Activo", RefParticipationTypeId: allRefs["participation.pie"] })]);
+    expect(table(json, "_Personas", "PersonStatus").filter((s) => s.RefPersonStatusTypeId === allRefs["personStatus.pie"])).toEqual([expect.objectContaining({ StatusStartDate: "2026-03-10", StatusEndDate: null })]);
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).not.toContain("retirado(s) sin entrega");
     expect(text).toContain("no revisa el PIE");

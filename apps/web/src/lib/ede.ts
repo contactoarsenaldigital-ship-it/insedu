@@ -1,5 +1,5 @@
 import "server-only";
-import { buildEdeJson, DELIVERY_DOC_LABEL, localTime, provisionalRefs, requestStatus, subsidyList, weekdayOf, type EdeInput, type EdeRefs } from "@insedu/domain";
+import { buildEdeJson, DELIVERY_DOC_LABEL, localTime, OFFICIAL_REFS, provisionalRefs, requestStatus, subsidyList, weekdayOf, type EdeInput, type EdeRefs } from "@insedu/domain";
 import { accountById } from "./accounts";
 import { fullName, school } from "./demo";
 import { ensureEnrollments } from "./matricula";
@@ -12,7 +12,6 @@ import { getBlob } from "./documentos";
  * Exportación al EDE con los datos del establecimiento. Mientras no se genere el diccionario oficial de
  * códigos desde la base del validador, se usan los códigos provisionales y el informe lo advierte.
  */
-const OFFICIAL_REFS: EdeRefs = {};
 
 export const edeRefs = (): { refs: EdeRefs; provisional: boolean } =>
   Object.keys(OFFICIAL_REFS).length ? { refs: OFFICIAL_REFS, provisional: false } : { refs: provisionalRefs(), provisional: true };

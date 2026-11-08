@@ -16,7 +16,7 @@
  * Etapa 6: datos de cada asignatura (CourseSection), títulos de los docentes y recepción de los instrumentos de interés general.
  */
 import { parseRut } from "../rut";
-import type { EdeRefKey, EdeRefs } from "./refs";
+import { subjectArea, type EdeRefKey, type EdeRefs } from "./refs";
 import { measureDays, type DisciplinaryMeasureType } from "../discipline";
 
 export type EdeAttendanceStatus = "present" | "late" | "absent" | "justified";
@@ -111,7 +111,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   const start = withOffset(input.exportedAt, tz);
 
   // Claves sustitutas enteras, estables dentro de un archivo.
-  let seq = 0;
+  let seq = 100_000; // La plantilla del validador ya ocupa identificadores bajos.
   const ids = new Map<string, number>();
   const id = (key: string) => {
     if (!ids.has(key)) ids.set(key, ++seq);
@@ -134,19 +134,20 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       const ens = `org:ens:${codes.ensenanza}`;
       if (!ids.has(ens)) {
         push("Organization", { OrganizationId: id(ens), Name: codes.ensenanza, ShortName: codes.ensenanza.slice(0, 30), RefOrganizationTypeId: ref("orgType.codigoEnsenanza"), RecordStartDateTime: start, RecordEndDateTime: null });
-        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${ens}`), OrganizationId: id(ens), Parent_OrganizationId: schoolOrg, RecordStartDateTime: start, RecordEndDateTime: null });
+        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${ens}`), OrganizationId: id(ens), Parent_OrganizationId: schoolOrg, RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
       }
       const grado = `org:grado:${codes.grado}`;
       if (!ids.has(grado)) {
         push("Organization", { OrganizationId: id(grado), Name: codes.grado, ShortName: codes.grado.slice(0, 30), RefOrganizationTypeId: ref("orgType.grado"), RecordStartDateTime: start, RecordEndDateTime: null });
-        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${grado}`), OrganizationId: id(grado), Parent_OrganizationId: id(ens), RecordStartDateTime: start, RecordEndDateTime: null });
+        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${grado}`), OrganizationId: id(grado), Parent_OrganizationId: id(ens), RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
       }
       parent = id(grado);
     } else unknownLevels++;
     // El validador lee la letra del curso en Organization.Name; el nivel queda en el grado.
     const letter = c.name.trim().split(/\s+/).pop() ?? c.name;
     push("Organization", { OrganizationId: org, Name: codes ? letter : c.name, ShortName: c.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.course"), RecordStartDateTime: start, RecordEndDateTime: null });
-    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:course:${c.id}`), OrganizationId: org, Parent_OrganizationId: parent, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("Course", { OrganizationId: org, Description: c.name.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:course:${c.id}`), OrganizationId: org, Parent_OrganizationId: parent, RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
   }
   if (unknownLevels) issues.push({ severity: "error", message: `${unknownLevels} curso(s) con un nivel que no corresponde a Básica o Media regular: falta su código de enseñanza y grado` });
   const capacityOf = new Map(input.courses.map((c) => [c.id, c.capacity]));
@@ -158,7 +159,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     const capacity = capacityOf.get(s.courseId);
     if (capacity == null) withoutCapacity.add(s.courseId);
     push("CourseSection", { OrganizationId: org, CourseId: id(`org:course:${s.courseId}`), MaximumCapacity: capacity ?? null, VirtualIndicator: 0, RefInstructionLanguageId: ref("language.spanish"), OrganizationCalendarSessionId: null, RecordStartDateTime: start, RecordEndDateTime: null });
-    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:section:${s.id}`), OrganizationId: org, Parent_OrganizationId: id(`org:course:${s.courseId}`), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:section:${s.id}`), OrganizationId: org, Parent_OrganizationId: id(`org:course:${s.courseId}`), RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
   }
 
   // ── Personas ──
@@ -191,7 +192,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     identifier(pk, st.document === "IPE" ? "idSystem.ipe" : "idSystem.run", parsed ? `${parsed.body}-${parsed.dv}` : st.rut);
     identifier(pk, "idSystem.listNumber", String(st.listNumber));
     if (st.schoolNumber != null) identifier(pk, "idSystem.schoolNumber", String(st.schoolNumber));
-    if (st.address) push("PersonAddress", { PersonAddressId: id(`addr:${st.id}`), PersonId: id(pk), StreetNumberAndName: st.address.slice(0, 40), RecordStartDateTime: start, RecordEndDateTime: null });
+    if (st.address) push("PersonAddress", { PersonAddressId: id(`addr:${st.id}`), PersonId: id(pk), StreetNumberAndName: st.address.slice(0, 40), RefPersonLocationTypeId: ref("personLocation.physical"), RecordStartDateTime: start, RecordEndDateTime: null });
     push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:asignado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.asignadoCurso"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
     push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:definitiva`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.matriculaDefinitiva"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
     if (st.withdrawnOn) push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:retirado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.retirado"), StatusValue: 1, StatusStartDate: st.withdrawnOn, StatusEndDate: null, RecordStartDateTime: start, RecordEndDateTime: null });
@@ -373,7 +374,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     if (!ids.has(section)) continue;
     if (!e.signatureKey) unsignedEvaluations++;
     const a = id(`asmt:${e.id}`), adm = id(`asmtadm:${e.id}`), ses = id(`asmtses:${e.id}`);
-    push("Assessment", { AssessmentId: a, Identifier: e.id.slice(0, 40), Title: e.title.slice(0, 60), ShortName: e.title.slice(0, 30), RefAssessmentTypeId: ref("assessmentType.sumativa"), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("Assessment", { AssessmentId: a, Identifier: e.id.slice(0, 40), Title: e.title.slice(0, 60), AssessmentFamilyTitle: e.title.slice(0, 60), ShortName: e.title.slice(0, 30), RefAssessmentTypeId: ref("assessmentType.sumativa"), RefAcademicSubjectId: ref(`academicSubject.${subjectArea(input.subjects.find((s) => s.id === e.subjectId)?.name ?? "")}`), RecordStartDateTime: start, RecordEndDateTime: null });
     push("AssessmentAdministration", { AssessmentAdministrationId: adm, AssessmentId: a, Name: e.title.slice(0, 30), StartDate: e.date, FinishDate: e.date, RecordStartDateTime: start, RecordEndDateTime: null });
     push("Assessment_AssessmentAdministration", { Assessment_AssessmentAdministrationId: id(`aaa:${e.id}`), AssessmentId: a, AssessmentAdministrationId: adm, RecordStartDateTime: start, RecordEndDateTime: null });
     push("AssessmentAdministration_Organization", { AssessmentAdministration_OrganizationId: id(`aao:${e.id}`), AssessmentAdministrationId: adm, OrganizationId: id(section), RecordStartDateTime: start, RecordEndDateTime: null });
@@ -563,9 +564,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     const courseId = studentCourse.get(p.studentId);
     const role = courseId && `opr:person:${p.studentId}:org:course:${courseId}`;
     if (!role || !ids.has(role)) continue;
-    const from = dayStart(p.since, tz), to = p.until ? dayStart(p.until, tz) : null;
-    push("PersonProgramParticipation", { OrganizationPersonRoleId: id(role), RefParticipationTypeId: ref("participation.pie"), ParticipationStatus: p.until ? "Egresado" : "Activo", RefProgramExitReasonId: null, RecordStartDateTime: from, RecordEndDateTime: to });
-    push("ProgramParticipationSpecialEducation", { OrganizationPersonRoleId: id(role), SpecialEducationServicesExitDate: p.until ?? null, RecordStartDateTime: from, RecordEndDateTime: to });
+    push("PersonStatus", { PersonStatusId: id(`pstatus:${p.studentId}:pie:${p.since}`), PersonId: id(`person:${p.studentId}`), RefPersonStatusTypeId: ref("personStatus.pie"), StatusValue: 1, StatusStartDate: p.since, StatusEndDate: p.until ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
   }
   if (input.pie.length) issues.push({ severity: "aviso", message: "El validador oficial no revisa el PIE: se exporta solo la nómina del programa, sin diagnósticos, y su formato no está confirmado" });
 
@@ -584,12 +583,12 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
     _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
     _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship", "PersonDegreeOrCertificate"],
-    _Intervenciones: ["PersonProgramParticipation", "ProgramParticipationSpecialEducation"],
     _ComunidadEducativa: ["OrganizationPersonRole", "RoleStatus", "K12StudentEnrollment", "RoleAttendanceEvent"],
-    _Cursos: ["CourseSection", "CourseSectionSchedule"],
+    _Cursos: ["Course", "CourseSection", "CourseSectionSchedule"],
     _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],
   };
-  const json: EdeJson = Object.fromEntries(Object.entries(groups).map(([g, ts]) => [g, ts.filter((t) => tables[t]?.length).map((t) => ({ [t]: tables[t]! }))]));
+  // El parser oficial recorre cada elemento del grupo buscando la tabla: un solo objeto con todas las tablas del grupo.
+  const json: EdeJson = Object.fromEntries(Object.entries(groups).map(([g, ts]) => [g, [Object.fromEntries(ts.filter((t) => tables[t]?.length).map((t) => [t, tables[t]!]))]]));
   const counts = Object.fromEntries(Object.entries(tables).map(([t, r]) => [t, r.length]));
   return { json, issues, counts };
 }

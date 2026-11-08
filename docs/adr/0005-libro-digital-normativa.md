@@ -107,7 +107,18 @@ matrícula de cada estudiante marcado. Supuesto por validar: que la Superintende
   documentos de interés general» por instrumento, con cada apoderado que confirmó y el archivo del instrumento en Document
   (fn1FB). Supuesto por validar: que esa confirmación en la plataforma valga como entrega.
 
-**Pendiente:** diccionario oficial de códigos y correr `check` con Docker.
+**Octava etapa (validación con el contenedor oficial):**
+- `check` corre en local con la imagen `edemineduc/etl`, sin red y con datos ficticios. La frase secreta la genera `insert`.
+- El parser exige un solo objeto por grupo con todas sus tablas: el exportador escribía uno por tabla y se perdía casi todo.
+- Diccionario: `OFFICIAL_REFS` en `ede/refs.ts`, tomado de los catálogos `Ref*` y `Role` de la plantilla en blanco, con la clave del
+  código público del validador. Fue decisión expresa del responsable del proyecto. La base que genera `insert` no se abre: es para la Superintendencia.
+- Por confirmar con la Superintendencia (no hay código exacto, ver «interpretación» en el diccionario): rol del estudiante anotado,
+  quien entrega y recibe documentos, funcionario que ratifica un retiro, persona autorizada a retirar, suspensión de clases, conducta
+  negativa y las diez medidas disciplinarias.
+- El PIE se informa como estado «Estudiante PIE» (`RefPersonStatusType`): `RefParticipationType` no tiene ese programa.
+- Los identificadores parten en 100.001 porque la plantilla ya ocupa los bajos. Se agregó la tabla `Course`, a la que apunta `CourseSection`.
+
+**Pendiente:** corregir las reglas que aún fallan en `check` (33 de 99 con los datos iniciales de la maqueta) y confirmar las interpretaciones.
 
 ## Registro de matrícula
 

@@ -29,11 +29,27 @@ export type EdeRefKey =
   | "relationship.apoderado" | "role.apoderado"
   | "attEvent.establecimiento" | "attStatus.earlyDeparture" | "roleStatus.enrolled" | "role.retira" | "role.funcionario"
   | "relationship.autorizadoRetiro" | "personStatus.retirado" | "incidentBehavior.entregaRetiro" | "incidentBehavior.entregaContinuidad"
-  | "incidentPersonType.administrativo" | "incidentPersonType.otro" | "incidentPersonRole.entrega" | "incidentPersonRole.recibe" | "participation.pie"
+  | "incidentPersonType.administrativo" | "incidentPersonType.otro" | "incidentPersonRole.entrega" | "incidentPersonRole.recibe"
   | "language.spanish" | "incidentBehavior.interesGeneral"
+  | "personStatus.pie" | "personLocation.physical" | "orgRelationship.internal"
+  | `academicSubject.${EdeSubjectArea}`
   | `disciplinaryAction.${DisciplinaryMeasureType}`;
 
 import { MEASURE_LABEL, type DisciplinaryMeasureType } from "../discipline";
+
+export type EdeSubjectArea = "matematica" | "lenguaje" | "idioma" | "historia" | "ciencias" | "artes" | "otra";
+
+/** Área de RefAcademicSubject que corresponde a una asignatura, según su nombre. */
+export function subjectArea(name: string): EdeSubjectArea {
+  const n = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/matemat/.test(n)) return "matematica";
+  if (/lenguaje|lengua y|comunicacion/.test(n)) return "lenguaje";
+  if (/ingles|idioma|frances|aleman/.test(n)) return "idioma";
+  if (/historia|geografia|sociales|ciudadan/.test(n)) return "historia";
+  if (/ciencia|biologia|fisica(?! )|quimica/.test(n) && !/educacion fisica|ed\. fisica/.test(n)) return "ciencias";
+  if (/arte|musica/.test(n)) return "artes";
+  return "otra";
+}
 
 export type EdeRefSource = { lookup: string; observed?: number; inferred?: number; note?: string };
 
@@ -104,10 +120,57 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "incidentPersonRole.recibe": { lookup: "RefIncidentPersonRoleType de quien recibe documentos: por confirmar" },
   "language.spanish": { lookup: "RefLanguage del español (código 'spa'): por confirmar", note: "fn9F1 exige CourseSection.RefInstructionLanguageId" },
   "incidentBehavior.interesGeneral": { lookup: "RefIncidentBehavior.Description = 'Entrega de documentos de interés general'", note: "fn1FB" },
-  "participation.pie": { lookup: "RefParticipationType del Programa de Integración Escolar: por confirmar", note: "Ninguna regla del validador revisa el PIE" },
+  "personStatus.pie": { lookup: "RefPersonStatusType.Description = 'Estudiante PIE'", note: "RefParticipationType no tiene PIE. Ninguna regla del validador revisa el PIE" },
+  "personLocation.physical": { lookup: "RefPersonLocationType.Code = 'Physical'" },
+  "orgRelationship.internal": { lookup: "RefOrganizationRelationship.Code = 'InternalOrganization'" },
+  "academicSubject.matematica": { lookup: "RefAcademicSubject.Description = 'Mathematics'" },
+  "academicSubject.lenguaje": { lookup: "RefAcademicSubject.Description = 'Reading/Language Arts'" },
+  "academicSubject.idioma": { lookup: "RefAcademicSubject.Description = 'Foreign Languages'" },
+  "academicSubject.historia": { lookup: "RefAcademicSubject.Description = 'Social Sciences'" },
+  "academicSubject.ciencias": { lookup: "RefAcademicSubject.Description = 'Science'" },
+  "academicSubject.artes": { lookup: "RefAcademicSubject.Description = 'Arts'" },
+  "academicSubject.otra": { lookup: "RefAcademicSubject.Description = 'Other'" },
 };
 
 export type EdeRefs = Partial<Record<EdeRefKey, number>>;
+
+/**
+ * Diccionario tomado de los catálogos Ref* y Role de la plantilla en blanco del validador (ceds-nds-v7_1, Admin-EDE/DockerEdeCode).
+ * Los marcados «interpretación» no tienen un código exacto en el catálogo: conviene confirmarlos con la Superintendencia.
+ */
+export const OFFICIAL_REFS: EdeRefs = {
+  "role.estudiante": 6, "role.docente": 5, "role.profesorJefe": 4, "role.apoderado": 15, "role.retira": 18,
+  "role.funcionario": 11, // interpretación: Personal administrativo
+  "orgType.school": 10, "orgType.course": 21, "orgType.courseSection": 22, "orgType.codigoEnsenanza": 45, "orgType.grado": 46,
+  "orgIdSystem.rbd": 48, "orgRelationship.internal": 3,
+  "idSystem.run": 51, "idSystem.ipe": 52, "idSystem.listNumber": 54, "idSystem.schoolNumber": 55,
+  "sex.male": 1, "sex.female": 2,
+  "attEvent.daily": 1, "attEvent.classSection": 2, "attEvent.establecimiento": 5,
+  "attStatus.present": 1, "attStatus.excusedAbsence": 2, "attStatus.unexcusedAbsence": 3, "attStatus.tardy": 4, "attStatus.earlyDeparture": 5,
+  "personStatus.matriculaDefinitiva": 27, "personStatus.retirado": 30, "personStatus.asignadoCurso": 32, "personStatus.pie": 36,
+  "personLocation.physical": 13, "relationship.apoderado": 31,
+  "relationship.autorizadoRetiro": 23, // interpretación: Other
+  "roleStatus.enrolled": 26,
+  "calendarEvent.suspension": 4, // interpretación: Other
+  "assessmentType.formativa": 28, "assessmentType.sumativa": 29, "scoreMetric.nota": 1, "assessmentStaffRole.estudiante": 6,
+  "incidentBehavior.entrevista": 31, "incidentBehavior.reunion": 32, "incidentBehavior.entregaRetiro": 33, "incidentBehavior.positiva": 34,
+  "incidentBehavior.interesGeneral": 35, "incidentBehavior.entregaContinuidad": 36,
+  "incidentBehavior.negativa": 29, // interpretación: Violation of School Rules
+  "incidentPersonType.apoderado": 43, "incidentPersonType.docente": 44, "incidentPersonType.estudiante": 45,
+  "incidentPersonType.profesional": 47, "incidentPersonType.otro": 48, "incidentPersonType.administrativo": 49,
+  "incidentPersonRole.registra": 4, "incidentPersonRole.entrevistado": 5, "incidentPersonRole.entrevistador": 6, "incidentPersonRole.dirigeReunion": 7, "incidentPersonRole.asisteReunion": 8,
+  "incidentPersonRole.estudiante": 2, // interpretación: Perpetrator; el catálogo no tiene un rol neutro para el estudiante anotado
+  "incidentPersonRole.entrega": 4, // interpretación: Reporter
+  "incidentPersonRole.recibe": 8, // interpretación: Participante
+  "incidentReporterType.docente": 7,
+  "incidentTime.horaClases": 9, // Other time during school hours: sirve para anotaciones, entrevistas y entregas
+  "language.spanish": 400,
+  "academicSubject.matematica": 9, "academicSubject.lenguaje": 11, "academicSubject.idioma": 5, "academicSubject.historia": 15, "academicSubject.ciencias": 12, "academicSubject.artes": 1, "academicSubject.otra": 18,
+  // Interpretación: el catálogo es el de CEDS; se eligió la acción más cercana a cada medida del reglamento.
+  "disciplinaryAction.dialogo_formativo": 7, "disciplinaryAction.amonestacion_verbal": 29, "disciplinaryAction.amonestacion_escrita": 29, "disciplinaryAction.citacion_apoderado": 8,
+  "disciplinaryAction.medida_reparatoria": 30, "disciplinaryAction.servicio_comunitario": 6, "disciplinaryAction.suspension": 41, "disciplinaryAction.condicionalidad": 32,
+  "disciplinaryAction.cancelacion_matricula": 25, "disciplinaryAction.expulsion": 17,
+};
 
 /** Diccionario provisional: solo los números vistos o deducidos en las reglas. No reemplaza al oficial. */
 export function provisionalRefs(): EdeRefs {
