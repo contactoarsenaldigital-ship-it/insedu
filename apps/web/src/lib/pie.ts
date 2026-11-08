@@ -122,5 +122,5 @@ export function seedPieCourse(courseId: string) {
 }
 
 export function seedPie() {
-  for (const courseId of ["course-1", "course-2"]) if (courseById(courseId)) seedPieCourse(courseId);
+  for (const courseId of ["course-1", "course-2", "course-3", "course-4"]) if (courseById(courseId)) seedPieCourse(courseId);
 }

@@ -63,6 +63,7 @@ export default async function Exits({ searchParams }: { searchParams: Promise<{ 
   const ofDay = exits.filter((e) => e.date === date && visible(e.courseId)).sort((a, b) => a.exitTime.localeCompare(b.exitTime));
   const coursesOfDay = courseExits.filter((e) => e.date === date && visible(e.courseId));
   const open = openExits(date).filter((e) => visible(e.courseId));
+  const lastDay = [...exits, ...courseExits].filter((e) => visible(e.courseId) && e.date !== date).map((e) => e.date).sort().at(-1);
   const search = write ? (await cookies()).get("insedu_salidas_q")?.value ?? "" : "";
   const q = fold(search);
   const qRut = normalizeRut(search);
@@ -105,7 +106,7 @@ export default async function Exits({ searchParams }: { searchParams: Promise<{ 
 
       <section className="section">
         <h2>Retiros del día</h2>
-        {ofDay.length === 0 ? <p className="muted">Sin retiros registrados este día.</p> : (
+        {ofDay.length === 0 ? <p className="muted">Sin retiros registrados este día.{lastDay && <> <Link href={`/salidas?fecha=${lastDay}`}>Ver el último día con registros ({lastDay})</Link></>}</p> : (
           <div className="table-scroll">
             <table className="data">
               <thead><tr><th>Folio</th><th>Estudiante</th><th>Curso</th><th>Salida</th><th>Regreso</th><th>Retiró</th><th>Motivo</th></tr></thead>

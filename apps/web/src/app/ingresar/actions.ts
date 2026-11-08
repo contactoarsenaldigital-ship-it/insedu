@@ -16,6 +16,7 @@ function homeFor(roles: Role[], raw: string) {
     : roles.includes("nurse") ? "/salud"
     : roles.includes("pie_professional") ? "/pie"
     : roles.includes("librarian") ? "/biblioteca"
+    : roles.some((r) => r === "psychologist" || r === "counselor" || r === "social_worker") ? "/encuestas"
     : "/libro";
   const next = raw && raw !== "/" && raw !== "/libro" ? raw : home;
   return next.startsWith("/") && !next.startsWith("//") ? next : home;
