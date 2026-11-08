@@ -131,7 +131,7 @@ matrícula de cada estudiante marcado. Supuesto por validar: que la Superintende
 
 **Demostración:** el archivo real del colegio ficticio, generado tras reiniciar la demostración, aprueba las 99 reglas del validador oficial. La siembra
 (`lib/demo-ede.ts`, `lib/matricula.ts`) inventa domicilios, contactos, títulos, RUN, horario, clases firmadas, firma de la asistencia diaria y documento de
-matrícula. Los RUN ficticios pasan a 44.000.000-46.999.999, porque el validador rechaza los mayores a 47.000.000. Al ser parte de la siembra, el reinicio los restaura.
+matrícula, además de entrevistas, reuniones, entregas e instrumentos con sus actas y comprobantes en PDF de ejemplo. Los RUN ficticios pasan a 44.000.000-46.999.999, porque el validador rechaza los mayores a 47.000.000. Al ser parte de la siembra, el reinicio los restaura.
 
 **Pendiente para operar con datos reales:**
 - Formularios para capturar lo que hoy solo llena la siembra: domicilio estructurado y RUN del apoderado, dirección, correo, teléfono y jornada del establecimiento,
@@ -139,7 +139,6 @@ matrícula. Los RUN ficticios pasan a 44.000.000-46.999.999, porque el validador
 - fn6F0 solo descuenta días marcados como `EmergencyDay`, `Holiday`, `Strike` o `TeacherOnlyDay`, y hoy las suspensiones se informan como `Other`.
 - fn5E0 suma el retiro dentro de los totales de la clase si ocurre en plena hora, mientras fn0FB exige ese evento: los retiros a mitad de un bloque quedarían rechazados.
   Hay que consultarlo con la Superintendencia.
-- La demostración aún no siembra entrevistas, reuniones, entregas ni instrumentos: esas reglas pasan por no tener registros.
 - Confirmar las interpretaciones del diccionario.
 
 ## Registro de matrícula

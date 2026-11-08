@@ -60,7 +60,7 @@ export type EdeInput = {
   pie: { studentId: string; since: string; until?: string }[];
   staff: { id: string; rut?: string; name: string; degrees?: { title: string; institution: string; awardDate?: string; idoneidad: boolean; degreeType?: DegreeType; accredited?: boolean; verification?: DegreeVerification }[] }[];
   /** Instrumentos de interés general y los apoderados que confirmaron recibirlos. docIds: archivo del instrumento. */
-  institutional: { id: string; title: string; publishedAt: string; by: string; docIds: string[]; acks: { studentId: string; name: string; at: string }[] }[];
+  institutional: { id: string; title: string; publishedAt: string; by: string; docIds: string[]; acks: { studentId: string; name: string; rut?: string; at: string }[] }[];
   /** signatureKey: verificador de quien firmó la asistencia del curso ese día. */
   daily: { studentId: string; date: string; status: EdeAttendanceStatus; signedAt?: string; signatureKey?: string }[];
   lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
@@ -625,7 +625,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     for (const [i, a] of d.acks.entries()) {
       const courseId = studentCourse.get(a.studentId);
       if (!courseId) continue;
-      const pk = adultPerson({ studentId: a.studentId, name: a.name }, courseId, "apoderado");
+      const pk = adultPerson({ studentId: a.studentId, name: a.name, rut: a.rut }, courseId, "apoderado");
       push("IncidentPerson", { IncidentId: inc, PersonId: id(pk), Identifier: `${d.id}:a${i + 1}`.slice(0, 40), RefIncidentPersonTypeId: ref("incidentPersonType.apoderado"), RefIncidentPersonRoleTypeId: ref("incidentPersonRole.recibe"), Date: withOffset(a.at, tz), fileScanBase64: file, RecordStartDateTime: start, RecordEndDateTime: null });
     }
   }

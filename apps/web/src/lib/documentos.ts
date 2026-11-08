@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } f
 import type { DocumentOwnerKind, StoredDocument } from "@insedu/domain";
 import type { SqlPool } from "@insedu/persistence";
 import { studentById } from "./demo";
+import { demoPdf, isDemoFile } from "./demo-ede";
 import { canManageEnrollment } from "./matricula";
 import { canRegisterExits } from "./salidas";
 import type { Session } from "./session";
@@ -72,6 +73,10 @@ export async function putBlob(id: string, plain: Buffer) {
 }
 
 export async function getBlob(id: string): Promise<Buffer | null> {
+  if (isDemoFile(id)) {
+    const demo = documentsState().find((d) => d.id === id);
+    return demo ? demoPdf(demo.label) : null;
+  }
   const db = mainPool();
   const sealed = db
     ? await withDb(db, async () => (await db.query<{ content: Buffer }>("select content from demo.files where tenant_id = $1 and id = $2", [TENANT_ID, id])).rows[0]?.content ?? null)

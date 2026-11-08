@@ -50,7 +50,7 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
     })),
     institutional: deliveriesState().institutional.map((d) => ({
       id: d.id, title: d.title, publishedAt: d.at, by: d.by, docIds: documentsState().filter((x) => x.ownerKind === "institucional" && x.ownerId === d.id).map((x) => x.id),
-      acks: (d.acknowledgements ?? []).flatMap((a) => a.wardIds.map((studentId) => ({ studentId, name: findPerson(a.personId)?.name ?? "", at: a.at }))),
+      acks: (d.acknowledgements ?? []).flatMap((a) => a.wardIds.map((studentId) => ({ studentId, name: findPerson(a.personId)?.name ?? "", rut: a.personId.startsWith("guardian-of-") ? records.get(studentId)?.guardians[0]?.rut : undefined, at: a.at }))),
     })),
     daily: s.attendance.map((a) => {
       const signed = dailySignatures.get(`${courseOf.get(a.studentId)}|${a.date}`);
@@ -85,7 +85,7 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
       const d = r.delivery!;
       const confirmer = d.confirmedBy ? findPerson(d.confirmedBy) : undefined;
       const receiver = d.medium === "electronico"
-        ? { name: confirmer?.name ?? r.requester.name, kind: confirmer?.roles.includes("student") ? "estudiante" as const : confirmer?.roles.includes("guardian_academic") ? "apoderado" as const : "otro" as const }
+        ? { name: confirmer?.name ?? r.requester.name, rut: confirmer?.id.startsWith("guardian-of-") ? records.get(r.studentId)?.guardians[0]?.rut : undefined, kind: confirmer?.roles.includes("student") ? "estudiante" as const : confirmer?.roles.includes("guardian_academic") ? "apoderado" as const : "otro" as const }
         : { name: d.receivedBy ?? r.requester.name, rut: d.receivedRut, kind: r.requester.kind };
       const roles = findPerson(d.by)?.roles ?? [];
       return {

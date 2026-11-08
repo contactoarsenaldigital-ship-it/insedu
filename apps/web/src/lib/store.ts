@@ -48,7 +48,7 @@ export function guardianOf(studentId: string): Person | undefined {
   if (!st) return undefined;
   return {
     id: `guardian-of-${studentId}`,
-    name: `Apoderado/a de ${st.firstName} ${st.lastName.split(" ")[0]}`,
+    name: enrollmentRecords().find((r) => r.id === studentId)?.guardians[0]?.name ?? `Apoderado/a de ${st.firstName} ${st.lastName.split(" ")[0]}`,
     roles: ["guardian_academic"],
     description: `Apoderado/a académico/a de ${st.firstName} ${st.lastName}`,
     wards: [studentId],

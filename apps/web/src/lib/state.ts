@@ -91,13 +91,13 @@ function seedMain() {
   G.__insedu_store = initStore(); // agrupa notas en evaluaciones (usa el colegio recién generado)
   seedPie();
   seedExits();
-  seedEdeDemo();
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();
   G.__insedu_accounts = initAccounts();
   G.__insedu_surveys = initSurveys();
   G.__insedu_instr = [];
   G.__insedu_health = new Map();
+  seedEdeDemo(); // al final: las fichas de matrícula leen el perfil de salud
 }
 
 function vaultCollections(): Collection[] {
