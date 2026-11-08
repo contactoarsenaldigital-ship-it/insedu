@@ -18,19 +18,30 @@
 import { parseRut } from "../rut";
 import { subjectArea, type EdeRefKey, type EdeRefs } from "./refs";
 import { measureDays, type DisciplinaryMeasureType } from "../discipline";
+import type { StructuredAddress } from "../enrollment";
+import type { DegreeType, DegreeVerification } from "../staff-records";
+import COMUNAS from "./comunas.json";
 
 export type EdeAttendanceStatus = "present" | "late" | "absent" | "justified";
 
 export type EdeInput = {
-  school: { rbd: string; name: string; year: string };
+  /** jornada: valor de la lista oficial (Mañana, Tarde, Mañana y Tarde, Vespertina/Nocturna). */
+  school: {
+    rbd: string; name: string; year: string; jornada?: string;
+    location?: StructuredAddress & { building: string }; email?: string; phone?: string;
+    /** Primer y último día de clases del periodo informado. */
+    firstDay?: string; lastDay?: string;
+  };
   /** capacity: capacidad autorizada del curso. */
   courses: { id: string; name: string; level: string; headTeacherId?: string; capacity?: number }[];
   subjects: { id: string; courseId: string; name: string; teacherId?: string }[];
   students: {
     id: string; rut: string; document: "RUN" | "IPE"; firstName: string; lastName: string; birthDate?: string; sex?: "F" | "M";
-    address?: string; courseId: string; listNumber: number; schoolNumber?: number; enrolledOn?: string; withdrawnOn?: string;
+    address?: string; location?: StructuredAddress; courseId: string; listNumber: number; schoolNumber?: number; enrolledOn?: string; withdrawnOn?: string;
+    /** Documento escaneado que respalda la matrícula definitiva. */
+    enrollmentDocId?: string;
     /** Apoderado titular de la matrícula. */
-    guardian?: { name: string; rut?: string };
+    guardian?: { name: string; rut?: string; location?: StructuredAddress; phone?: string; email?: string };
   }[];
   /** Personas autorizadas a retirar, vigentes. */
   pickups: { studentId: string; name: string; rut?: string }[];
@@ -47,10 +58,11 @@ export type EdeInput = {
   }[];
   /** Nómina del Programa de Integración Escolar, sin diagnósticos. */
   pie: { studentId: string; since: string; until?: string }[];
-  staff: { id: string; rut?: string; name: string; degrees?: { title: string; institution: string; awardDate?: string; idoneidad: boolean }[] }[];
+  staff: { id: string; rut?: string; name: string; degrees?: { title: string; institution: string; awardDate?: string; idoneidad: boolean; degreeType?: DegreeType; accredited?: boolean; verification?: DegreeVerification }[] }[];
   /** Instrumentos de interés general y los apoderados que confirmaron recibirlos. docIds: archivo del instrumento. */
   institutional: { id: string; title: string; publishedAt: string; by: string; docIds: string[]; acks: { studentId: string; name: string; at: string }[] }[];
-  daily: { studentId: string; date: string; status: EdeAttendanceStatus }[];
+  /** signatureKey: verificador de quien firmó la asistencia del curso ese día. */
+  daily: { studentId: string; date: string; status: EdeAttendanceStatus; signedAt?: string; signatureKey?: string }[];
   lessons: { id: string; subjectId: string; date: string; attendance: Record<string, EdeAttendanceStatus>; signedAt?: string; signerId?: string; signatureKey?: string; withinSchedule?: boolean }[];
   /** Horario: una fila por asignatura, día y hora de la jornada. */
   schedule: { subjectId: string; weekday: 1 | 2 | 3 | 4 | 5; period: number; start: string; end: string }[];
@@ -92,11 +104,22 @@ const dayStart = (date: string, timeZone: string) => {
   return `${date}T00:00:00${noon.slice(19)}`;
 };
 
+const comunaByCode = new Map(COMUNAS.map((c) => [c.code, c]));
+export const comunaName = (code: string) => comunaByCode.get(code)?.name ?? code;
+/** RefState numera las regiones de forma correlativa: la 01 es el código 63. */
+const regionRef = (comunaCode: string) => 62 + Number(comunaCode.slice(0, 2));
+/** fn3DD: +56 seguido solo de dígitos. */
+const phoneNumber = (phone: string) => phone.replace(/[^\d+]/g, "");
+
+/** fn9F1 compara la hora con TIME(hora), que siempre incluye los segundos. */
+const withSeconds = (time: string) => (time.length === 5 ? `${time}:00` : time);
+
 /** «Pérez Soto» → apellido paterno y materno; «Ana María» → nombre y segundo nombre. */
 export function splitNames(firstName: string, lastName: string) {
   const [first = "", ...middle] = firstName.trim().split(/\s+/);
   const [last = "", ...second] = lastName.trim().split(/\s+/);
-  return { FirstName: first, MiddleName: middle.join(" "), LastName: last, SecondLastName: second.join(" ") };
+  // fn4FA arma el nombre concatenando en SQL: un nulo borra el nombre completo, y el validador convierte "" en nulo.
+  return { FirstName: first, MiddleName: middle.join(" ") || " ", LastName: last, SecondLastName: second.join(" ") || " " };
 }
 
 export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; issues: EdeIssue[]; counts: Record<string, number> } {
@@ -120,28 +143,41 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
 
   const tables: Record<string, Row[]> = {};
   const push = (table: string, row: Row) => void (tables[table] ??= []).push(row);
+  const documentRow = (docIds: string[]) => {
+    const doc = docIds.find((d) => input.documents[d]);
+    if (doc && !ids.has(`doc:${doc}`)) push("Document", { documentId: id(`doc:${doc}`), fileScanBase64: input.documents[doc]! });
+    return doc ? id(`doc:${doc}`) : null;
+  };
+  const addressFields = (a: StructuredAddress) => ({ RefCountryId: ref("country.chile"), RefStateId: regionRef(a.comunaCode), City: a.city, RefCountyId: comunaByCode.get(a.comunaCode)?.id ?? null, StreetNumberAndName: a.street.slice(0, 40), ApartmentRoomOrSuiteNumber: a.unit, PostalCode: a.postalCode });
+  const personAddress = (a: StructuredAddress) => ({ ...addressFields(a), AddressCountyName: comunaByCode.get(a.comunaCode)?.name ?? null });
 
   // ── Organizaciones: establecimiento → cursos → asignaturas ──
   const schoolOrg = id("org:school");
   push("Organization", { OrganizationId: schoolOrg, Name: input.school.name, ShortName: input.school.name.slice(0, 30), RefOrganizationTypeId: ref("orgType.school"), RecordStartDateTime: start, RecordEndDateTime: null });
-  push("OrganizationIdentifier", { OrganizationIdentifierId: id("orgid:rbd"), OrganizationId: schoolOrg, Identifier: input.school.rbd, RefOrganizationIdentificationSystemId: ref("orgIdSystem.rbd"), RecordStartDateTime: start, RecordEndDateTime: null });
+  push("OrganizationIdentifier", { OrganizationIdentifierId: id("orgid:rbd"), OrganizationId: schoolOrg, Identifier: rbdIdentifier(input.school.rbd), RefOrganizationIdentificationSystemId: ref("orgIdSystem.rbd"), RefOrganizationIdentifierTypeId: ref("orgIdentifierType.school"), RecordStartDateTime: start, RecordEndDateTime: null });
   let unknownLevels = 0;
+  const jornada = input.school.jornada ?? "Mañana y Tarde";
+  if (!input.school.jornada) issues.push({ severity: "aviso", message: "No está registrada la jornada del establecimiento: se informa «Mañana y Tarde»" });
   for (const c of input.courses) {
     const org = id(`org:course:${c.id}`);
     const codes = gradeCodes(c.level);
     let parent = schoolOrg;
     if (codes) {
-      const ens = `org:ens:${codes.ensenanza}`;
-      if (!ids.has(ens)) {
-        push("Organization", { OrganizationId: id(ens), Name: codes.ensenanza, ShortName: codes.ensenanza.slice(0, 30), RefOrganizationTypeId: ref("orgType.codigoEnsenanza"), RecordStartDateTime: start, RecordEndDateTime: null });
-        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${ens}`), OrganizationId: id(ens), Parent_OrganizationId: schoolOrg, RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
+      // jerarquiasList: establecimiento → modalidad → jornada → nivel → rama → sector → especialidad → tipo de curso → enseñanza → grado → curso.
+      const ciclo = "000:Ciclo General";
+      const levels: [EdeRefKey, string][] = [
+        ["orgType.modalidad", "Regular"], ["orgType.jornada", jornada], ["orgType.nivel", codes.nivel], ["orgType.rama", ciclo], ["orgType.sector", ciclo], ["orgType.especialidad", ciclo],
+        ["orgType.tipoCurso", "01:Simple"], ["orgType.codigoEnsenanza", codes.ensenanza], ["orgType.grado", codes.grado],
+      ];
+      let path = "org:h";
+      for (const [type, name] of levels) {
+        path += `/${name}`;
+        if (!ids.has(path)) {
+          push("Organization", { OrganizationId: id(path), Name: name, ShortName: name.slice(0, 30), RefOrganizationTypeId: ref(type), RecordStartDateTime: start, RecordEndDateTime: null });
+          push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${path}`), OrganizationId: id(path), Parent_OrganizationId: parent, RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
+        }
+        parent = id(path);
       }
-      const grado = `org:grado:${codes.grado}`;
-      if (!ids.has(grado)) {
-        push("Organization", { OrganizationId: id(grado), Name: codes.grado, ShortName: codes.grado.slice(0, 30), RefOrganizationTypeId: ref("orgType.grado"), RecordStartDateTime: start, RecordEndDateTime: null });
-        push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:${grado}`), OrganizationId: id(grado), Parent_OrganizationId: id(ens), RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
-      }
-      parent = id(grado);
     } else unknownLevels++;
     // El validador lee la letra del curso en Organization.Name; el nivel queda en el grado.
     const letter = c.name.trim().split(/\s+/).pop() ?? c.name;
@@ -161,6 +197,21 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     push("CourseSection", { OrganizationId: org, CourseId: id(`org:course:${s.courseId}`), MaximumCapacity: capacity ?? null, VirtualIndicator: 0, RefInstructionLanguageId: ref("language.spanish"), OrganizationCalendarSessionId: null, RecordStartDateTime: start, RecordEndDateTime: null });
     push("OrganizationRelationship", { OrganizationRelationshipId: id(`rel:section:${s.id}`), OrganizationId: org, Parent_OrganizationId: id(`org:course:${s.courseId}`), RefOrganizationRelationshipId: ref("orgRelationship.internal"), RecordStartDateTime: start, RecordEndDateTime: null });
   }
+
+  // ── Contacto y ubicación del establecimiento (fn3FC, fn3FD, fn3C3) ──
+  const { location, email, phone } = input.school;
+  if (email) push("OrganizationEmail", { OrganizationEmailId: id("orgmail:school"), OrganizationId: schoolOrg, ElectronicMailAddress: email, RefEmailTypeId: ref("emailType.organizational"), RecordStartDateTime: start, RecordEndDateTime: null });
+  if (phone) push("OrganizationTelephone", { OrganizationTelephoneId: id("orgtel:school"), OrganizationId: schoolOrg, TelephoneNumber: phoneNumber(phone), PrimaryTelephoneNumberIndicator: 1, RefInstitutionTelephoneTypeId: ref("institutionPhone.main"), RecordStartDateTime: start, RecordEndDateTime: null });
+  if (location) {
+    const place = id("location:school");
+    push("Location", { LocationId: place, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("LocationAddress", { LocationId: place, ...addressFields(location), CountyName: comunaByCode.get(location.comunaCode)?.name ?? null, BuildingSiteNumber: location.building, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("Classroom", { LocationId: place, ClassroomIdentifier: location.building.slice(0, 30), RecordStartDateTime: start, RecordEndDateTime: null });
+    const orgs = ["org:school", ...input.courses.map((c) => `org:course:${c.id}`), ...input.subjects.map((s) => `org:section:${s.id}`)];
+    for (const key of orgs) push("OrganizationLocation", { OrganizationLocationId: id(`orgloc:${key}`), OrganizationId: id(key), LocationId: place, RefOrganizationLocationTypeId: ref("orgLocationType.physical"), RecordStartDateTime: start, RecordEndDateTime: null });
+    for (const s of input.subjects) push("CourseSectionLocation", { CourseSectionLocationId: id(`secloc:${s.id}`), OrganizationId: id(`org:section:${s.id}`), LocationId: place, RecordStartDateTime: start, RecordEndDateTime: null });
+  }
+  if (!location || !email || !phone) issues.push({ severity: "error", message: "Faltan la dirección, el correo o el teléfono del establecimiento: el validador los exige" });
 
   // ── Personas ──
   // (la capacidad se informa aquí para que el aviso quede junto a los cursos)
@@ -192,12 +243,14 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     identifier(pk, st.document === "IPE" ? "idSystem.ipe" : "idSystem.run", parsed ? `${parsed.body}-${parsed.dv}` : st.rut);
     identifier(pk, "idSystem.listNumber", String(st.listNumber));
     if (st.schoolNumber != null) identifier(pk, "idSystem.schoolNumber", String(st.schoolNumber));
-    if (st.address) push("PersonAddress", { PersonAddressId: id(`addr:${st.id}`), PersonId: id(pk), StreetNumberAndName: st.address.slice(0, 40), RefPersonLocationTypeId: ref("personLocation.physical"), RecordStartDateTime: start, RecordEndDateTime: null });
-    push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:asignado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.asignadoCurso"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
-    push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:definitiva`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.matriculaDefinitiva"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, RecordStartDateTime: start, RecordEndDateTime: null });
-    if (st.withdrawnOn) push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:retirado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.retirado"), StatusValue: 1, StatusStartDate: st.withdrawnOn, StatusEndDate: null, RecordStartDateTime: start, RecordEndDateTime: null });
+    if (st.address) push("PersonAddress", { PersonAddressId: id(`addr:${st.id}`), PersonId: id(pk), ...(st.location ? personAddress(st.location) : { StreetNumberAndName: st.address.slice(0, 40) }), RefPersonLocationTypeId: ref("personLocation.physical"), RecordStartDateTime: start, RecordEndDateTime: null });
+    push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:asignado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.asignadoCurso"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: null, RecordStartDateTime: start, RecordEndDateTime: null });
+    push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:definitiva`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.matriculaDefinitiva"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? null, StatusEndDate: st.withdrawnOn ?? null, fileScanBase64: st.enrollmentDocId ? documentRow([st.enrollmentDocId]) : null, RecordStartDateTime: start, RecordEndDateTime: null });
+    if (st.withdrawnOn) push("PersonStatus", { PersonStatusId: id(`pstatus:${st.id}:retirado`), PersonId: id(pk), RefPersonStatusTypeId: ref("personStatus.retirado"), StatusValue: 1, StatusStartDate: st.enrolledOn ?? st.withdrawnOn, StatusEndDate: st.withdrawnOn, RecordStartDateTime: start, RecordEndDateTime: null });
     const courseRole = opr(pk, `org:course:${st.courseId}`, "role.estudiante", st.enrolledOn, st.withdrawnOn);
-    push("K12StudentEnrollment", { OrganizationPersonRoleId: courseRole, StudentListNumber: st.listNumber, active: st.withdrawnOn ? 0 : 1, RecordStartDateTime: start, RecordEndDateTime: null });
+    // fn2FA cuenta solo a los vigentes con estado y fecha de ingreso.
+    const current = !st.withdrawnOn && st.enrolledOn;
+    push("K12StudentEnrollment", { OrganizationPersonRoleId: courseRole, StudentListNumber: st.listNumber, active: st.withdrawnOn ? 0 : 1, RefEnrollmentStatusId: current ? ref("enrollmentStatus.current") : null, FirstEntryDateIntoUSSchool: current ? st.enrolledOn! : null, RecordStartDateTime: start, RecordEndDateTime: null });
     // fn0FB: el estudiante también está en el establecimiento, y su rol en cada asignatura tiene estado «Enrolled».
     opr(pk, "org:school", "role.estudiante", st.enrolledOn, st.withdrawnOn);
     for (const sec of sectionsOf.get(st.courseId) ?? []) {
@@ -220,7 +273,9 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       for (const [i, d] of (p?.degrees ?? []).entries()) {
         push("PersonDegreeOrCertificate", {
           PersonDegreeOrCertificateId: id(`degree:${staffId}:${i}`), PersonId: id(pk), DegreeOrCertificateTitleOrSubject: d.title, NameOfInstitution: d.institution,
-          AwardDate: d.awardDate ?? null, idoneidadDocente: d.idoneidad ? 1 : 0, RecordStartDateTime: start, RecordEndDateTime: null,
+          AwardDate: d.awardDate ?? null, idoneidadDocente: d.idoneidad ? 1 : 0,
+          RefDegreeOrCertificateTypeId: d.degreeType ? ref(`degreeType.${d.degreeType}`) : null, RefHigherEducationInstitutionAccreditationStatusId: d.accredited == null ? null : ref(d.accredited ? "accreditation.national" : "accreditation.none"),
+          RefEducationVerificationMethodId: d.verification ? ref(`verification.${d.verification}`) : null, RecordStartDateTime: start, RecordEndDateTime: null,
         });
       }
     }
@@ -238,7 +293,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   // Un mismo adulto (por RUN o, sin RUN, por nombre) es una sola persona por estudiante. fn0FA exige que cada estudiante
   // tenga al menos una persona con RetirarEstudianteIndicador = 1; fn8F3 y fn1F* buscan al apoderado por su relación y rol.
   type AdultKind = "apoderado" | "retira" | "otro";
-  const adultPerson = (a: { studentId: string; name: string; rut?: string }, courseId: string, kind: AdultKind, opts: { retira?: boolean; until?: string } = {}) => {
+  const schoolRole = (pk: string) => (ids.has(`opr:${pk}:org:school`) ? id(`opr:${pk}:org:school`) : opr(pk, "org:school", "role.retira"));
+  const adultPerson = (a: { studentId: string; name: string; rut?: string; location?: StructuredAddress; phone?: string; email?: string }, courseId: string, kind: AdultKind, opts: { retira?: boolean; until?: string } = {}) => {
     const parsed = a.rut ? parseRut(a.rut) : null;
     const pk = `person:adult:${a.studentId}:${parsed ? parsed.body : a.name.trim().toLowerCase()}`;
     if (!ids.has(pk)) {
@@ -247,6 +303,9 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
       const cut = words.length > 2 ? words.length - 2 : 1;
       push("Person", { PersonId: id(pk), ...splitNames(words.slice(0, cut).join(" "), words.slice(cut).join(" ")), RecordStartDateTime: start, RecordEndDateTime: null });
       if (parsed) identifier(pk, "idSystem.run", `${parsed.body}-${parsed.dv}`);
+      if (a.location) push("PersonAddress", { PersonAddressId: id(`addr:${pk}`), PersonId: id(pk), ...personAddress(a.location), RefPersonLocationTypeId: ref("personLocation.physical"), RecordStartDateTime: start, RecordEndDateTime: null });
+      if (a.phone) push("PersonTelephone", { PersonTelephoneId: id(`tel:${pk}`), PersonId: id(pk), TelephoneNumber: phoneNumber(a.phone), PrimaryTelephoneNumberIndicator: 1, RefPersonTelephoneNumberTypeId: ref("personPhone.mobile"), RecordStartDateTime: start, RecordEndDateTime: null });
+      if (a.email) push("PersonEmailAddress", { PersonEmailAddressId: id(`mail:${pk}`), PersonId: id(pk), EmailAddress: a.email, RefEmailTypeId: ref("emailType.home"), RecordStartDateTime: start, RecordEndDateTime: null });
     }
     if (kind === "otro") return pk;
     const relKey = `prel:${pk}:${kind}`;
@@ -277,7 +336,9 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     if (!courseId || !ids.has(`opr:person:${a.studentId}:org:course:${courseId}`)) continue;
     push("RoleAttendanceEvent", {
       RoleAttendanceEventId: id(`att:daily:${a.studentId}:${a.date}`), OrganizationPersonRoleId: id(`opr:person:${a.studentId}:org:course:${courseId}`),
-      Date: dayStart(a.date, tz), RefAttendanceEventTypeId: ref("attEvent.daily"), RefAttendanceStatusId: ref(statusRef[a.status]), VirtualIndicator: 0, RecordStartDateTime: start, RecordEndDateTime: null,
+      Date: dayStart(a.date, tz), RefAttendanceEventTypeId: ref("attEvent.daily"),
+      // fn5E5 y fn6F0: en el registro diario quien llegó atrasado cuenta como presente; el atraso consta en la asignatura.
+      RefAttendanceStatusId: ref(statusRef[a.status === "late" ? "present" : a.status]), VirtualIndicator: 0, digitalRandomKey: a.signatureKey ?? null, digitalRandomKeyDate: a.signedAt ? withOffset(a.signedAt, tz) : null, RecordStartDateTime: start, RecordEndDateTime: null,
     });
   }
   let unsigned = 0, noKey = 0;
@@ -296,17 +357,19 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
         digitalRandomKey: l.signatureKey ?? null, digitalRandomKeyDate: withOffset(l.signedAt, tz), RecordStartDateTime: start, RecordEndDateTime: null,
       });
     }
+    const signerRole = `opr:person:${l.signerId}:org:section:${l.subjectId}`;
+    if (l.signerId && ids.has(signerRole)) {
+      push("RoleAttendanceEvent", {
+        RoleAttendanceEventId: id(`att:class:${l.id}:firma`), OrganizationPersonRoleId: id(signerRole), Date: withOffset(l.signedAt, tz), RefAttendanceEventTypeId: ref("attEvent.classSection"),
+        RefAttendanceStatusId: ref("attStatus.present"), VirtualIndicator: 0, digitalRandomKey: l.signatureKey ?? null, digitalRandomKeyDate: withOffset(l.signedAt, tz), RecordStartDateTime: start, RecordEndDateTime: null,
+      });
+    }
   }
   if (unsigned) issues.push({ severity: "aviso", message: `${unsigned} clase(s) sin firmar no se exportan` });
   if (noKey) issues.push({ severity: "error", message: `${noKey} clase(s) firmadas sin el código del verificador: el validador exige la firma en cada registro de asistencia` });
 
   // ── Salidas o retiros (fn0FB): tres eventos «EarlyDeparture» a la misma hora ──
   // 1) el estudiante en la asignatura en curso, 2) el estudiante en el establecimiento, 3) quien retira, ratificado por el funcionario.
-  const documentRow = (docIds: string[]) => {
-    const doc = docIds.find((d) => input.documents[d]);
-    if (doc && !ids.has(`doc:${doc}`)) push("Document", { documentId: id(`doc:${doc}`), fileScanBase64: input.documents[doc]! });
-    return doc ? id(`doc:${doc}`) : null;
-  };
   const staffSchoolRole = (staffId: string) => {
     const pk = staffPerson(staffId);
     return ids.has(`opr:${pk}:org:school`) ? id(`opr:${pk}:org:school`) : opr(pk, "org:school", "role.funcionario");
@@ -329,7 +392,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     const proof = documentRow(e.docIds);
     if (proof == null) exitNoPickupProof++;
     push("RoleAttendanceEvent", {
-      RoleAttendanceEventId: id(`att:exit:pickup:${e.id}`), OrganizationPersonRoleId: id(`opr:${pk}:org:course:${e.courseId}`), RefAttendanceEventTypeId: ref("attEvent.establecimiento"), ...base,
+      RoleAttendanceEventId: id(`att:exit:pickup:${e.id}`), OrganizationPersonRoleId: schoolRole(pk), RefAttendanceEventTypeId: ref("attEvent.establecimiento"), ...base,
       oprIdRatificador: staffById.has(e.by) ? staffSchoolRole(e.by) : null, firmaRatificador: key, fechaRatificador: keyDate, fileScanBase64: proof,
     });
   }
@@ -344,7 +407,7 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     if (!ids.has(`org:section:${h.subjectId}`)) continue;
     push("CourseSectionSchedule", {
       CourseSectionScheduleId: id(`css:${h.subjectId}:${h.weekday}:${h.period}`), OrganizationId: id(`org:section:${h.subjectId}`),
-      ClassMeetingDays: DAY[h.weekday]!, ClassBeginningTime: h.start, ClassEndingTime: h.end, ClassPeriod: `Hora ${String(h.period).padStart(2, "0")}`, RecordStartDateTime: start, RecordEndDateTime: null,
+      ClassMeetingDays: DAY[h.weekday]!, ClassBeginningTime: withSeconds(h.start), ClassEndingTime: withSeconds(h.end), ClassPeriod: `Bloque${String(h.period).padStart(2, "0")}`, RecordStartDateTime: start, RecordEndDateTime: null,
     });
   }
   const scheduled = new Set(input.schedule.map((h) => h.subjectId));
@@ -354,6 +417,15 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   const outside = signed.filter((l) => scheduled.has(l.subjectId) && l.withinSchedule === false).length;
   if (outside) issues.push({ severity: "aviso", message: `${outside} clase(s) se firmaron fuera del horario del bloque: el validador no las aceptará` });
   const signedLessons = signed;
+  // fn5E5: la sesión de un día de clase lleva la hora del bloque en que se firmó.
+  const blockOfDay = new Map<string, { start: string; end: string }>();
+  for (const l of signedLessons) {
+    const weekday = new Date(`${l.date}T12:00:00Z`).getUTCDay();
+    const at = withOffset(l.signedAt!, tz).slice(11, 16);
+    const blocks = input.schedule.filter((h) => h.subjectId === l.subjectId && h.weekday === weekday);
+    const block = blocks.find((h) => h.start <= at && at <= h.end) ?? blocks[0];
+    if (block) blockOfDay.set(`${l.subjectId}:${l.date}`, block);
+  }
 
   // ── Evaluaciones y notas ──
   // eslint-disable-next-line prefer-const
@@ -362,7 +434,8 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
     const calKey = `cal:section:${subjectId}`;
     if (!ids.has(calKey)) push("OrganizationCalendar", { OrganizationCalendarId: id(calKey), OrganizationId: id(`org:section:${subjectId}`), CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `Clases ${input.school.year}`.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
     const sessKey = `sess:${subjectId}:${date}`;
-    if (!ids.has(sessKey)) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(sessKey), OrganizationCalendarId: id(calKey), BeginDate: date, EndDate: date, Description: description, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+    const block = blockOfDay.get(`${subjectId}:${date}`);
+    if (!ids.has(sessKey)) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(sessKey), OrganizationCalendarId: id(calKey), BeginDate: date, EndDate: date, SessionStartTime: block ? withSeconds(block.start) : null, SessionEndTime: block ? withSeconds(block.end) : null, Description: description, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
     return id(sessKey);
   };
   const totalWeight = new Map<string, number>();
@@ -571,20 +644,30 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
   // ── Calendario: año escolar y suspensiones ──
   const calendar = id("cal:year");
   push("OrganizationCalendar", { OrganizationCalendarId: calendar, OrganizationId: schoolOrg, CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `Año escolar ${input.school.year}`, RecordStartDateTime: start, RecordEndDateTime: null });
+  // fn9F2: cada curso con estudiantes tiene su propio calendario.
+  const { firstDay, lastDay } = input.school;
+  for (const c of input.courses) {
+    push("OrganizationCalendar", { OrganizationCalendarId: id(`cal:course:${c.id}`), OrganizationId: id(`org:course:${c.id}`), CalendarCode: input.school.year, CalendarYear: input.school.year, CalendarDescription: `${c.name} ${input.school.year}`.slice(0, 60), RecordStartDateTime: start, RecordEndDateTime: null });
+    // fn6F0: revisa la asistencia de cada día hábil entre la primera y la última fecha de clases.
+    if (firstDay && lastDay) push("OrganizationCalendarSession", { OrganizationCalendarSessionId: id(`sess:course:${c.id}`), OrganizationCalendarId: id(`cal:course:${c.id}`), BeginDate: firstDay, EndDate: lastDay, FirstInstructionDate: firstDay, LastInstructionDate: lastDay, Description: `Periodo escolar ${input.school.year}`, AttendanceTermIndicator: 1, RecordStartDateTime: start, RecordEndDateTime: null });
+  }
   for (const s of input.suspensions) {
     push("OrganizationCalendarEvent", { OrganizationCalendarEventId: id(`calev:${s.id}`), OrganizationCalendarId: calendar, Name: s.reason.slice(0, 30), EventDate: s.date, RefCalendarEventType: ref("calendarEvent.suspension"), indicadorSinClases: 1, RecordStartDateTime: start, RecordEndDateTime: null });
   }
 
+  // fn3F9: IncidentPerson.Date es una fecha corta. La hora del hecho queda en Incident.IncidentTime.
+  for (const p of tables.IncidentPerson ?? []) p.Date = String(p.Date).slice(0, 10);
+
   if (missing.size) issues.unshift({ severity: "error", message: `Faltan ${missing.size} código(s) oficiales del EDE: ${[...missing].join(", ")}. Genere el diccionario desde la base del validador` });
 
   const groups: Record<string, string[]> = {
-    _Organizaciones: ["Organization", "OrganizationIdentifier", "OrganizationRelationship"],
+    _Organizaciones: ["Organization", "OrganizationIdentifier", "OrganizationRelationship", "OrganizationEmail", "OrganizationTelephone", "OrganizationLocation"],
     _Comunes: ["Document"],
     _Evaluaciones: ["Assessment", "AssessmentAdministration", "Assessment_AssessmentAdministration", "AssessmentAdministration_Organization", "AssessmentSession", "AssessmentSessionStaffRole", "AssessmentRegistration", "AssessmentResult", "LearnerActivity"],
     _Incidentes: ["Incident", "IncidentPerson", "K12StudentDiscipline"],
-    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonStatus", "PersonRelationship", "PersonDegreeOrCertificate"],
+    _Personas: ["Person", "PersonIdentifier", "PersonAddress", "PersonTelephone", "PersonEmailAddress", "PersonStatus", "PersonRelationship", "PersonDegreeOrCertificate"],
     _ComunidadEducativa: ["OrganizationPersonRole", "RoleStatus", "K12StudentEnrollment", "RoleAttendanceEvent"],
-    _Cursos: ["Course", "CourseSection", "CourseSectionSchedule"],
+    _Cursos: ["Course", "CourseSection", "CourseSectionSchedule", "Location", "LocationAddress", "Classroom", "CourseSectionLocation"],
     _Calendarios: ["OrganizationCalendar", "OrganizationCalendarSession", "OrganizationCalendarEvent"],
   };
   // El parser oficial recorre cada elemento del grupo buscando la tabla: un solo objeto con todas las tablas del grupo.
@@ -594,10 +677,16 @@ export function buildEdeJson(input: EdeInput, refs: EdeRefs): { json: EdeJson; i
 }
 
 /** Código de enseñanza y grado de listValidationData.xlsx para Básica y Media científico-humanista regular. */
-export function gradeCodes(level: string): { ensenanza: string; grado: string } | null {
+/** El validador exige «RBD» seguido de cinco dígitos. */
+export function rbdIdentifier(rbd: string): string {
+  const digits = rbd.replace(/\D/g, "");
+  return `RBD${digits.slice(0, 5).padStart(5, "0")}`;
+}
+
+export function gradeCodes(level: string): { nivel: string; ensenanza: string; grado: string } | null {
   const m = level.match(/^\s*(\d)\s*°?\s*(B[aá]sico|Medio)/i);
   if (!m) return null;
   const n = Number(m[1]);
-  if (/medio/i.test(m[2]!)) return n >= 1 && n <= 4 ? { ensenanza: "310:Enseñanza Media H-C niños y jóvenes", grado: `310.0${n}:${n}º medio` } : null;
-  return n >= 1 && n <= 8 ? { ensenanza: "110:Enseñanza Básica", grado: `110.0${n}:${n}º Básico` } : null;
+  if (/medio/i.test(m[2]!)) return n >= 1 && n <= 4 ? { nivel: "05:Enseñanza Media Humanístico Científica Jóvenes", ensenanza: "310:Enseñanza Media H-C niños y jóvenes", grado: `310.0${n}:${n}º medio` } : null;
+  return n >= 1 && n <= 8 ? { nivel: "02:Enseñanza Básica Niños", ensenanza: "110:Enseñanza Básica", grado: `110.0${n}:${n}º Básico` } : null;
 }

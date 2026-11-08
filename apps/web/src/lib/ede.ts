@@ -7,6 +7,7 @@ import { allStaff, edeDataState, deliveriesState, documentsState, exitsState, fi
 import { actasOf, isTeacher } from "./entrevistas";
 import { bells, signatureWarning } from "./horario";
 import { getBlob } from "./documentos";
+import { DEMO_ENROLLMENT_SCAN, demoStaffRut } from "./demo-ede";
 
 /**
  * Exportación al EDE con los datos del establecimiento. Mientras no se genere el diccionario oficial de
@@ -28,28 +29,33 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
       const st = inCourse.find((x) => x.id === o.id)!;
       const r = records.get(st.id);
       const g = r?.guardians[0];
-      return { guardian: g?.name ? { name: g.name } : undefined, id: st.id, rut: st.rut, document: r?.document ?? "RUN", firstName: st.firstName, lastName: st.lastName, birthDate: r?.birthDate, sex: r?.sex, address: r?.address, courseId: st.courseId, listNumber: i + 1, schoolNumber: r?.number, enrolledOn: r?.enrolledOn, withdrawnOn: st.withdrawnOn };
+      return { guardian: g?.name ? { name: g.name, rut: g.rut, location: g.location, phone: g.phone, email: g.email } : undefined, location: r?.location, enrollmentDocId: r?.enrollmentScan ? `matricula-ficticia:${st.id}` : undefined, id: st.id, rut: st.rut, document: r?.document ?? "RUN", firstName: st.firstName, lastName: st.lastName, birthDate: r?.birthDate, sex: r?.sex, address: r?.address, courseId: st.courseId, listNumber: i + 1, schoolNumber: r?.number, enrolledOn: r?.enrolledOn, withdrawnOn: st.withdrawnOn };
     });
   });
   const lessons = repo.subjects().flatMap((x) => repo.lessonsOf(x.id));
   const day = bells().bells;
   const tz = s.timeZone || "America/Santiago";
   // La hora de una anotación es la de su registro en la bitácora (las del colegio ficticio no la tienen).
+  const courseOf = new Map(s.students.map((st) => [st.id, st.courseId]));
+  const dailySignatures = new Map(edeDataState().dailySignatures.map((d) => [`${d.courseId}|${d.date}`, d]));
   const conductTimes = new Map(logbook().filter((e) => e.entity === "anotacion" && e.action === "crear").map((e) => [e.recordId, e.at]));
   return {
-    school: { rbd: s.rbd, name: s.name, year },
+    school: { rbd: s.rbd, name: s.name, year, ...s.profile },
     courses: s.courses.map((c) => ({ id: c.id, name: c.name, level: c.level, headTeacherId: c.headTeacherId || undefined, capacity: edeDataState().capacities.find((x) => x.courseId === c.id)?.capacity })),
     subjects: repo.subjects().map((x) => ({ id: x.id, courseId: x.courseId, name: x.name, teacherId: x.teacherId || undefined })),
     students,
     staff: allStaff().map((p) => ({
-      id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : undefined,
-      degrees: edeDataState().degrees.filter((d) => d.personId === p.id).map((d) => ({ title: d.title, institution: d.institution, awardDate: d.awardDate, idoneidad: d.idoneidad })),
+      id: p.id, name: p.name, rut: p.id.startsWith("acc-") ? accountById(p.id)?.rut : demoStaffRut(p.id),
+      degrees: edeDataState().degrees.filter((d) => d.personId === p.id).map((d) => ({ title: d.title, institution: d.institution, awardDate: d.awardDate, idoneidad: d.idoneidad, degreeType: d.degreeType, accredited: d.accredited, verification: d.verification })),
     })),
     institutional: deliveriesState().institutional.map((d) => ({
       id: d.id, title: d.title, publishedAt: d.at, by: d.by, docIds: documentsState().filter((x) => x.ownerKind === "institucional" && x.ownerId === d.id).map((x) => x.id),
       acks: (d.acknowledgements ?? []).flatMap((a) => a.wardIds.map((studentId) => ({ studentId, name: findPerson(a.personId)?.name ?? "", at: a.at }))),
     })),
-    daily: s.attendance.map((a) => ({ studentId: a.studentId, date: a.date, status: a.status })),
+    daily: s.attendance.map((a) => {
+      const signed = dailySignatures.get(`${courseOf.get(a.studentId)}|${a.date}`);
+      return { studentId: a.studentId, date: a.date, status: a.status, signedAt: signed?.at, signatureKey: signed?.key };
+    }),
     lessons: lessons.map((l) => {
       const signedAt = l.signature?.at ?? l.signedAt;
       return { id: l.id, subjectId: l.subjectId, date: l.date, attendance: l.attendance, signedAt, signerId: l.signature?.by, signatureKey: l.signature?.key, withinSchedule: signedAt ? !signatureWarning(l.subjectId, l.date, l.block, signedAt) : undefined };
@@ -62,7 +68,7 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
     grades: repo.subjects().flatMap((x) => repo.gradesOf(x.id)).map((g) => ({ evaluationId: g.evaluationId, studentId: g.studentId, value: g.value })),
     conduct: s.conduct.map((c) => {
       const at = conductTimes.get(c.id);
-      return { id: c.id, studentId: c.studentId, date: c.date, time: at ? localTime(at, tz).concat(":00") : undefined, kind: c.kind, severity: c.severity, description: c.description, recordedBy: c.recordedBy, article: c.article, measures: c.measures?.map((m) => ({ id: m.id, type: m.type, from: m.from, to: m.to })), signedAt: c.signature?.at, signatureKey: c.signature?.key };
+      return { id: c.id, studentId: c.studentId, date: c.date, time: c.time ?? (at ? localTime(at, tz).concat(":00") : undefined), kind: c.kind, severity: c.severity, description: c.description, recordedBy: c.recordedBy, article: c.article, measures: c.measures?.map((m) => ({ id: m.id, type: m.type, from: m.from, to: m.to })), signedAt: c.signature?.at, signatureKey: c.signature?.key };
     }),
     meetings: meetingsState().map((m) => ({
       id: m.id, kind: m.kind, courseId: m.courseId, studentId: m.studentId, date: m.date, time: m.time, description: `${m.topics}\nAcuerdos: ${m.agreements}`,
@@ -89,7 +95,7 @@ export function edeInput(documents?: Record<string, string | undefined>): EdeInp
       };
     }),
     pie: pieState().students.map((p) => ({ studentId: p.id, since: p.since, until: p.until })),
-    documents: { ...signatureImages(), ...(documents ?? Object.fromEntries(blobDocIds().map((id) => [id, "(sin cargar)"]))) },
+    documents: { ...signatureImages(), ...Object.fromEntries([...records.values()].filter((r) => r.enrollmentScan).map((r) => [`matricula-ficticia:${r.id}`, DEMO_ENROLLMENT_SCAN])), ...(documents ?? Object.fromEntries(blobDocIds().map((id) => [id, "(sin cargar)"]))) },
     suspensions: subsidyState().events.filter((e) => e.kind === "suspension").map((e) => ({ id: e.id, date: e.date, reason: e.reason, authorization: e.authorization })),
     exportedAt: new Date().toISOString(),
     timeZone: s.timeZone || "America/Santiago",

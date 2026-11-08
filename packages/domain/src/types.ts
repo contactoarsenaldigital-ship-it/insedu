@@ -90,6 +90,8 @@ export type ConductRecord = {
   studentId: string;
   date: string;
   kind: ConductKind;
+  /** Hora del hecho, HH:MM:SS. Si falta, se usa la de su registro en la bitácora. */
+  time?: string;
   /** Gravedad para anotaciones negativas: leve | grave | gravisima */
   severity?: "leve" | "grave" | "gravisima";
   description: string;

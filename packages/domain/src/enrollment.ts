@@ -8,7 +8,10 @@
  */
 import type { Student } from "./types";
 
-export type GuardianContact = { name: string; address: string; phone: string; email?: string };
+/** Domicilio con el detalle que pide el EDE. comunaCode: código oficial de la comuna (ede/comunas.json). */
+export type StructuredAddress = { comunaCode: string; city: string; street: string; unit: string; postalCode: string };
+
+export type GuardianContact = { name: string; address: string; phone: string; email?: string; rut?: string; location?: StructuredAddress };
 
 export type EnrollmentCondition = "regular" | "excedente" | "intercambio" | "practica" | "migrante";
 
@@ -57,6 +60,10 @@ export type EnrollmentRecord = {
   campus?: string;
   enrolledOn?: string;
   address?: string;
+  /** Detalle del domicilio para el EDE. */
+  location?: StructuredAddress;
+  /** Tiene escaneado el documento que respalda la matrícula definitiva. */
+  enrollmentScan?: boolean;
   guardians: GuardianContact[];
   condition: EnrollmentCondition;
   resolution?: string;

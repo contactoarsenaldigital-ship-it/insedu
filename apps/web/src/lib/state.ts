@@ -7,6 +7,7 @@ import { initAccounts } from "./accounts";
 import { initSurveys } from "./surveys";
 import { seedPie } from "./pie";
 import { seedExits } from "./salidas";
+import { seedEdeDemo } from "./demo-ede";
 import { initMessages } from "./messages";
 import { initRewards } from "./rewards";
 import { initStore } from "./store";
@@ -53,12 +54,12 @@ function mainCollections(): Collection[] {
       key: () => "meta",
       get: () => {
         const s = G.__insedu_school as SyntheticSchool;
-        return [{ tenantId: s.tenantId, name: s.name, rbd: s.rbd, timeZone: s.timeZone, schoolDays: s.schoolDays, cutoff: s.cutoff }];
+        return [{ tenantId: s.tenantId, name: s.name, rbd: s.rbd, timeZone: s.timeZone, schoolDays: s.schoolDays, cutoff: s.cutoff, profile: s.profile }];
       },
       set: (items) => items[0] && Object.assign(G.__insedu_school, items[0]),
     },
     ...["courses", "students", "attendance", "grades", "conduct", "health"].map((f) => arrayOf(`school.${f}`, school, f)),
-    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries", "pickups", "exits", "courseExits", "subsidyCorrections", "subsidyEvents", "subsidyDeclarations", "documents", "docRequests", "institutionalDocs", "slots", "meetings", "courseCapacities", "staffDegrees"].map((f) => arrayOf(`libro.${f}`, store, f)),
+    ...["subjects", "evaluations", "lessons", "corrections", "logbook", "enrollments", "pieStudents", "pieTeam", "pieEntries", "pickups", "exits", "courseExits", "subsidyCorrections", "subsidyEvents", "subsidyDeclarations", "documents", "docRequests", "institutionalDocs", "slots", "meetings", "courseCapacities", "staffDegrees", "dailySignatures"].map((f) => arrayOf(`libro.${f}`, store, f)),
     arrayOf("libro.bells", store, "bells", (x) => String((x as { number: number }).number)),
     ...["ledger", "rewards", "redemptions", "goals"].map((f) => arrayOf(`refuerzos.${f}`, rewards, f)),
     ...["announcements", "threads"].map((f) => arrayOf(`comunicacion.${f}`, msgs, f)),
@@ -76,7 +77,7 @@ function mainCollections(): Collection[] {
 
 function resetMain() {
   G.__insedu_school = emptySchool();
-  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [], courseCapacities: [], staffDegrees: [] };
+  G.__insedu_store = { subjects: [], evaluations: [], lessons: [], corrections: [], logbook: [], enrollments: [], pieStudents: [], pieTeam: [], pieEntries: [], pickups: [], exits: [], courseExits: [], subsidyCorrections: [], subsidyEvents: [], subsidyDeclarations: [], documents: [], docRequests: [], institutionalDocs: [], bells: [], slots: [], meetings: [], courseCapacities: [], staffDegrees: [], dailySignatures: [] };
   G.__insedu_rewards = { ledger: [], rewards: [], redemptions: [], goals: [] };
   G.__insedu_msgs = { announcements: [], threads: [] };
   G.__insedu_accounts = { users: [], requests: [], challenges: [], audit: [], outbox: [], settings: [], demoCodes: [], imports: [] };
@@ -90,6 +91,7 @@ function seedMain() {
   G.__insedu_store = initStore(); // agrupa notas en evaluaciones (usa el colegio recién generado)
   seedPie();
   seedExits();
+  seedEdeDemo();
   G.__insedu_rewards = initRewards();
   G.__insedu_msgs = initMessages();
   G.__insedu_accounts = initAccounts();

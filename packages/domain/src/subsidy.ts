@@ -308,3 +308,6 @@ export function declarationDiff(declared: Record<string, DayTotals> | undefined,
   const same = (a?: DayTotals, b?: DayTotals) => !!a && !!b && a.attended === b.attended && a.absent === b.absent && a.enrolled === b.enrolled;
   return [...new Set([...Object.keys(before), ...Object.keys(current)])].filter((d) => !same(before[d], current[d])).sort();
 }
+
+/** Firma de la asistencia diaria de un curso, con verificador (validación fn6F0 del EDE). */
+export type DailySignature = { id: string; courseId: string; date: string; by: string; at: string; key: string };

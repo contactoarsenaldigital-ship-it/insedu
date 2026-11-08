@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { missingEnrollmentData, WITHDRAWAL_LABEL, type WithdrawalReason } from "@insedu/domain";
+import { comunaName, formatRut, missingEnrollmentData, WITHDRAWAL_LABEL, type StructuredAddress, type WithdrawalReason } from "@insedu/domain";
 import { courseById, fullName, studentById } from "@/lib/demo";
 import { canManageEnrollment, enrollmentOf } from "@/lib/matricula";
 import { getSession } from "@/lib/session";
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 const when = (iso: string) => new Date(iso).toLocaleString("es-CL", { timeZone: "America/Santiago", dateStyle: "short", timeStyle: "short" });
 const nameOf = (id: string) => findPerson(id)?.name ?? id;
+const place = (a: StructuredAddress) => `${a.street}, ${a.unit}, ${comunaName(a.comunaCode)}, ${a.city}, código postal ${a.postalCode}`;
 
 export default async function EnrollmentCard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   await readState();
@@ -93,6 +94,16 @@ export default async function EnrollmentCard({ params, searchParams }: { params:
             <button className="btn primary">Registrar baja</button>
           </form>
         </details>
+      )}
+
+      {(record.location || record.guardians[0]?.location || record.enrollmentScan) && (
+        <section className="card section">
+          <h2 style={{ fontSize: "1.2rem" }}>Datos para el EDE</h2>
+          {record.location && <p><strong>Domicilio del estudiante:</strong> {place(record.location)}</p>}
+          {record.guardians[0]?.location && <p><strong>Domicilio del apoderado:</strong> {place(record.guardians[0].location)}</p>}
+          {record.guardians[0]?.rut && <p><strong>RUN del apoderado:</strong> {formatRut(record.guardians[0].rut)}</p>}
+          {record.enrollmentScan && <p><strong>Matrícula definitiva:</strong> documento de respaldo cargado (ejemplo ficticio).</p>}
+        </section>
       )}
 
       <section className="section">

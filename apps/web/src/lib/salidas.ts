@@ -79,7 +79,7 @@ export function seedExits() {
   const day = (n: number) => days[Math.max(0, days.length - 1 - n)] ?? days[0]!;
   const pupils = activeStudents().filter((s) => s.courseId === "course-1").slice(0, 8);
   pupils.forEach((p, i) => {
-    const body = 9_000_000 + Math.floor(r() * 900_000);
+    const body = 46_900_000 + Math.floor(r() * 50_000);
     const rut = `${body}${computeDv(body)}`;
     st.pickups.push({ id: uuidv7(), studentId: p.id, name: FICTITIOUS_PICKUPS[i % FICTITIOUS_PICKUPS.length]!, rut, relation: i % 2 ? "Tío/a" : "Abuelo/a", source: "apoderado", by: `guardian-of-${p.id}`, at: `${days[0]}T12:00:00.000Z` });
   });

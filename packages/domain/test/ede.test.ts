@@ -54,12 +54,23 @@ describe("EDE", () => {
     expect(splitNames("Ana María", "Pérez Soto")).toEqual({ FirstName: "Ana", MiddleName: "María", LastName: "Pérez", SecondLastName: "Soto" });
   });
 
+  it("deja en blanco, no nulo, el segundo nombre o apellido que no existe", () => {
+    expect(splitNames("Luis", "Rojas")).toEqual({ FirstName: "Luis", MiddleName: " ", LastName: "Rojas", SecondLastName: " " });
+  });
+
+  it("da a cada curso su calendario y a cada clase firmada la hora de su bloque", () => {
+    const { json } = buildEdeJson(input(), allRefs);
+    const courseOrg = table(json, "_Cursos", "CourseSection")[0]!.CourseId;
+    expect(table(json, "_Calendarios", "OrganizationCalendar").filter((r) => r.OrganizationId === courseOrg)).toHaveLength(1);
+    expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((r) => r.BeginDate === "2026-10-05")).toMatchObject({ SessionStartTime: "08:45:00", SessionEndTime: "09:30:00" });
+  });
+
   it("agrupa las tablas como espera el contenedor oficial", () => {
     const { json, counts } = buildEdeJson(input(), allRefs);
     expect(Object.keys(json)).toEqual(["_Organizaciones", "_Comunes", "_Evaluaciones", "_Incidentes", "_Personas", "_ComunidadEducativa", "_Cursos", "_Calendarios"]);
-    expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45", ClassEndingTime: "09:30", ClassPeriod: "Hora 02" });
+    expect(table(json, "_Cursos", "CourseSectionSchedule")[0]).toMatchObject({ ClassMeetingDays: "Lunes", ClassBeginningTime: "08:45:00", ClassEndingTime: "09:30:00", ClassPeriod: "Bloque02" });
     expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((r) => r.BeginDate === "2026-10-05")).toMatchObject({ EndDate: "2026-10-05", AttendanceTermIndicator: 1, Description: "Clases del 2026-10-05" });
-    expect(counts.Organization).toBe(5);
+    expect(counts.Organization).toBe(12);
     const orgs = table(json, "_Organizaciones", "Organization").map((r) => r.Name);
     expect(orgs).toEqual(expect.arrayContaining(["110:Enseñanza Básica", "110.05:5º Básico", "A", "Matemática"]));
     const persons = table(json, "_Personas", "Person");
@@ -82,7 +93,7 @@ describe("EDE", () => {
     const { json } = buildEdeJson(input(), allRefs);
     const events = table(json, "_ComunidadEducativa", "RoleAttendanceEvent");
     expect(events.find((e) => e.RefAttendanceEventTypeId === allRefs["attEvent.classSection"])).toMatchObject({ digitalRandomKey: "123456", Date: "2026-10-05T09:00:00-03:00", RefAttendanceStatusId: allRefs["attStatus.present"] });
-    expect(events.find((e) => e.RefAttendanceEventTypeId === allRefs["attEvent.daily"])).toMatchObject({ RefAttendanceStatusId: allRefs["attStatus.tardy"], Date: "2026-10-05T00:00:00-03:00" });
+    expect(events.find((e) => e.RefAttendanceEventTypeId === allRefs["attEvent.daily"])).toMatchObject({ RefAttendanceStatusId: allRefs["attStatus.present"], Date: "2026-10-05T00:00:00-03:00" });
   });
 
   it("informa lo que falta en vez de inventarlo", () => {
@@ -136,7 +147,7 @@ describe("EDE", () => {
     expect(text).toContain("sin medida disciplinaria");
     expect(text).toContain("2 anotación(es) sin firma");
     const reporter = table(json, "_Incidentes", "IncidentPerson").find((p) => p.Identifier === "k1:registra");
-    expect(reporter).toMatchObject({ digitalRandomKey: "111222", RefIncidentPersonTypeId: allRefs["incidentPersonType.docente"], Date: "2026-10-07T10:15:00-03:00" });
+    expect(reporter).toMatchObject({ digitalRandomKey: "111222", RefIncidentPersonTypeId: allRefs["incidentPersonType.docente"], Date: "2026-10-07" });
   });
 
   it("exporta entrevistas y reuniones con el apoderado, su relación y el acta", () => {
@@ -146,7 +157,7 @@ describe("EDE", () => {
     expect(inc[0]).toMatchObject({ IncidentTime: "16:30:00", IncidentReporterId: null, RegulationViolatedDescription: null });
     const people = table(json, "_Incidentes", "IncidentPerson").filter((p) => p.IncidentId === inc[0]!.IncidentId);
     const guardian = people.find((p) => p.RefIncidentPersonTypeId === allRefs["incidentPersonType.apoderado"])!;
-    expect(guardian).toMatchObject({ RefIncidentPersonRoleTypeId: allRefs["incidentPersonRole.entrevistado"], Date: "2026-10-15T16:30:00-03:00" });
+    expect(guardian).toMatchObject({ RefIncidentPersonRoleTypeId: allRefs["incidentPersonRole.entrevistado"], Date: "2026-10-15" });
     const doc = table(json, "_Comunes", "Document");
     expect(doc.find((d) => d.documentId === guardian.fileScanBase64)).toEqual({ documentId: guardian.fileScanBase64, fileScanBase64: "JVBERi0xLjQK" });
     expect(people.find((p) => p.RefIncidentPersonRoleTypeId === allRefs["incidentPersonRole.entrevistador"])).toMatchObject({ digitalRandomKey: "333444" });
@@ -193,7 +204,7 @@ describe("EDE", () => {
     const receiver = people.find((p) => p.Identifier === "r1:recibe")!;
     expect(receiver).toMatchObject({ RefIncidentPersonTypeId: allRefs["incidentPersonType.apoderado"] });
     expect(table(json, "_Comunes", "Document").find((d) => d.documentId === receiver.fileScanBase64)).toMatchObject({ fileScanBase64: "iVBORw0KGgoB" });
-    expect(table(json, "_Personas", "PersonStatus").find((s) => s.RefPersonStatusTypeId === allRefs["personStatus.retirado"])).toMatchObject({ StatusStartDate: "2026-09-30" });
+    expect(table(json, "_Personas", "PersonStatus").find((s) => s.RefPersonStatusTypeId === allRefs["personStatus.retirado"])).toMatchObject({ StatusEndDate: "2026-09-30" });
     expect(table(json, "_Personas", "PersonStatus").filter((s) => s.RefPersonStatusTypeId === allRefs["personStatus.pie"])).toEqual([expect.objectContaining({ StatusStartDate: "2026-03-10", StatusEndDate: null })]);
     const text = issues.map((i) => i.message).join(" | ");
     expect(text).not.toContain("retirado(s) sin entrega");
@@ -221,9 +232,33 @@ describe("EDE", () => {
     expect(missing).toContain("1 docente(s) sin título registrado");
   });
 
+  it("exporta domicilio, contactos, ubicación, documento de matrícula y firma diaria", () => {
+    const place = { comunaCode: "13119", city: "Santiago", street: "Los Aromos 123", unit: "Casa", postalCode: "9250000" };
+    const base = input();
+    const { json, issues } = buildEdeJson(input({
+      school: { ...base.school, location: { ...place, building: "Edificio principal" }, email: "contacto@colegio.example", phone: "+56 2 2345 6789", firstDay: "2026-10-05", lastDay: "2026-10-09" },
+      students: base.students.map((s, i) => (i ? s : { ...s, location: place, enrollmentDocId: "ficha-a", guardian: { name: "María José Soto Rivas", rut: "12345678-5", location: place, phone: "+56 9 1234 5678", email: "maria@correo.example" } })),
+      staff: base.staff.map((p) => ({ ...p, degrees: p.degrees?.map((d) => ({ ...d, degreeType: "profesional" as const, accredited: true, verification: "copia_titulo" as const })) })),
+      daily: [{ studentId: "a", date: "2026-10-05", status: "present", signedAt: "2026-10-05T12:20:00Z", signatureKey: "246810" }],
+      documents: { ...base.documents, "ficha-a": "JVBERi0xLjQK" },
+    }), allRefs);
+    expect(table(json, "_Personas", "PersonAddress")).toEqual(expect.arrayContaining([expect.objectContaining({ RefStateId: 75, RefCountyId: 313, AddressCountyName: "Maipú", City: "Santiago", ApartmentRoomOrSuiteNumber: "Casa", PostalCode: "9250000" })]));
+    expect(table(json, "_Personas", "PersonTelephone")[0]).toMatchObject({ TelephoneNumber: "+56912345678", PrimaryTelephoneNumberIndicator: 1 });
+    expect(table(json, "_Personas", "PersonEmailAddress")[0]).toMatchObject({ EmailAddress: "maria@correo.example" });
+    expect(table(json, "_Organizaciones", "OrganizationTelephone")[0]).toMatchObject({ TelephoneNumber: "+56223456789" });
+    expect(table(json, "_Organizaciones", "OrganizationLocation")).toHaveLength(3);
+    expect(table(json, "_Cursos", "CourseSectionLocation")[0]!.LocationId).toBe(table(json, "_Cursos", "Classroom")[0]!.LocationId);
+    expect(table(json, "_Personas", "PersonDegreeOrCertificate")[0]).toMatchObject({ RefDegreeOrCertificateTypeId: allRefs["degreeType.profesional"], RefHigherEducationInstitutionAccreditationStatusId: allRefs["accreditation.national"], RefEducationVerificationMethodId: allRefs["verification.copia_titulo"] });
+    const definitive = table(json, "_Personas", "PersonStatus").find((s) => s.RefPersonStatusTypeId === allRefs["personStatus.matriculaDefinitiva"] && s.fileScanBase64 != null)!;
+    expect(table(json, "_Comunes", "Document").some((d) => d.documentId === definitive.fileScanBase64)).toBe(true);
+    expect(table(json, "_ComunidadEducativa", "RoleAttendanceEvent").find((e) => e.RefAttendanceEventTypeId === allRefs["attEvent.daily"])).toMatchObject({ digitalRandomKey: "246810", digitalRandomKeyDate: "2026-10-05T09:20:00-03:00" });
+    expect(table(json, "_Calendarios", "OrganizationCalendarSession").find((s) => s.FirstInstructionDate)).toMatchObject({ FirstInstructionDate: "2026-10-05", LastInstructionDate: "2026-10-09" });
+    expect(issues.map((i) => i.message).join(" ")).not.toContain("establecimiento: el validador los exige");
+  });
+
   it("traduce el nivel al código de enseñanza y grado oficiales", () => {
-    expect(gradeCodes("5° Básico")).toEqual({ ensenanza: "110:Enseñanza Básica", grado: "110.05:5º Básico" });
-    expect(gradeCodes("1° Medio")).toEqual({ ensenanza: "310:Enseñanza Media H-C niños y jóvenes", grado: "310.01:1º medio" });
+    expect(gradeCodes("5° Básico")).toEqual({ nivel: "02:Enseñanza Básica Niños", ensenanza: "110:Enseñanza Básica", grado: "110.05:5º Básico" });
+    expect(gradeCodes("1° Medio")).toEqual({ nivel: "05:Enseñanza Media Humanístico Científica Jóvenes", ensenanza: "310:Enseñanza Media H-C niños y jóvenes", grado: "310.01:1º medio" });
     expect(gradeCodes("Kínder")).toBeNull();
   });
 

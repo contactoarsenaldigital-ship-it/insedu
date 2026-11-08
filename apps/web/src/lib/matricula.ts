@@ -1,6 +1,6 @@
 import "server-only";
 import {
-  CONDITION_LABEL, formatRut, missingEnrollmentData, mulberry32, nextEnrollmentNumber, parseRut, REGULAR_MODALITY, registrySummary, WITHDRAWAL_LABEL,
+  computeDv, CONDITION_LABEL, formatRut, missingEnrollmentData, mulberry32, nextEnrollmentNumber, parseRut, REGULAR_MODALITY, registrySummary, WITHDRAWAL_LABEL,
   type EnrollmentRecord, type Sheet, type Student,
 } from "@insedu/domain";
 import { accountsState, audit } from "./accounts";
@@ -16,18 +16,33 @@ import { enrollmentRecords, logEvent } from "./store";
 export const canManageEnrollment = (s: Session) => s.person.roles.some((r) => r === "school_admin" || r === "director");
 
 const FICTITIOUS_STREETS = ["Los Aromos", "Las Acacias", "El Roble", "Los Olivos", "Las Encinas"];
+const FICTITIOUS_COMUNAS = [
+  { code: "13119", name: "Maipú", postal: "9250000" }, { code: "13110", name: "La Florida", postal: "8240000" }, { code: "13120", name: "Ñuñoa", postal: "7750000" },
+  { code: "13201", name: "Puente Alto", postal: "8150000" }, { code: "13101", name: "Santiago", postal: "8320000" },
+];
+const FICTITIOUS_GUARDIANS = ["Claudia", "Paola", "Andrea", "Alejandra", "Carolina", "Rodrigo", "Cristián", "Patricio", "Mauricio", "Gonzalo"];
+const plain = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function demoData(student: Student): Partial<EnrollmentRecord> {
   const r = mulberry32([...student.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 11));
-  const street = () => `${FICTITIOUS_STREETS[Math.floor(r() * FICTITIOUS_STREETS.length)]} ${100 + Math.floor(r() * 899)}, comuna ficticia`;
-  const address = street();
+  const street = `${FICTITIOUS_STREETS[Math.floor(r() * FICTITIOUS_STREETS.length)]} ${100 + Math.floor(r() * 899)}`;
+  const comuna = FICTITIOUS_COMUNAS[Math.floor(r() * FICTITIOUS_COMUNAS.length)]!;
+  const address = `${street}, ${comuna.name}`;
+  const location = { comunaCode: comuna.code, city: "Santiago", street, unit: r() < 0.4 ? `Depto ${100 + Math.floor(r() * 400)}` : "Casa", postalCode: comuna.postal };
+  const given = FICTITIOUS_GUARDIANS[Math.floor(r() * FICTITIOUS_GUARDIANS.length)]!;
+  const rutBody = 46_000_000 + Math.floor(r() * 800_000);
   const hp = profile(student.id);
   return {
     sex: hp.sex,
     birthDate: hp.birthDate,
     enrolledOn: `${school().schoolDays[0]?.slice(0, 4) ?? "2026"}-03-0${1 + Math.floor(r() * 5)}`,
     address,
-    guardians: [{ name: `Apoderado/a de ${student.firstName} ${student.lastName.split(" ")[0]}`, address, phone: `+56 9 ${1000 + Math.floor(r() * 8999)} ${1000 + Math.floor(r() * 8999)}` }],
+    location,
+    enrollmentScan: true,
+    guardians: [{
+      name: `${given} ${student.lastName}`, address, location, rut: `${rutBody}${computeDv(rutBody)}`, phone: `+56 9 ${1000 + Math.floor(r() * 8999)} ${1000 + Math.floor(r() * 8999)}`,
+      email: `${plain(given)}.${plain(student.lastName.split(" ")[0]!)}${Math.floor(r() * 90) + 10}@correo-ficticio.example`,
+    }],
   };
 }
 

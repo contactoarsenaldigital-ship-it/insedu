@@ -6,6 +6,12 @@
 
 export type CourseCapacity = { id: string; courseId: string; capacity: number; by: string; at: string };
 
+export type DegreeType = "profesional" | "magister";
+export type DegreeVerification = "copia_titulo" | "certificado_oficial";
+
+export const DEGREE_TYPE_LABEL: Record<DegreeType, string> = { profesional: "Título profesional o licenciatura", magister: "Magíster" };
+export const DEGREE_VERIFICATION_LABEL: Record<DegreeVerification, string> = { copia_titulo: "Copia del título", certificado_oficial: "Certificado oficial" };
+
 export type StaffDegree = {
   id: string;
   personId: string;
@@ -15,6 +21,10 @@ export type StaffDegree = {
   awardDate?: string;
   /** Habilitado para la docencia sin título de profesor (idoneidad docente). */
   idoneidad: boolean;
+  degreeType?: DegreeType;
+  /** La institución que lo otorgó está acreditada. */
+  accredited?: boolean;
+  verification?: DegreeVerification;
   by: string;
   at: string;
 };

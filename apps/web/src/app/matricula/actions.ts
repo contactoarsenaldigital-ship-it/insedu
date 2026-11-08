@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   EMAIL_PATTERN, isValidRut, nextEnrollmentNumber, normalizeRut, parseDate, REGULAR_MODALITY, STRONG_AUTH_WINDOW_MS, withdrawalIssues,
-  type EnrollmentCondition, type EnrollmentRecord, type GuardianContact, type WithdrawalReason,
-} from "@insedu/domain";
+  type EnrollmentCondition, type EnrollmentRecord, type GuardianContact, type WithdrawalReason, type StructuredAddress } from "@insedu/domain";
 import { courseById, fullName, school, studentById } from "@/lib/demo";
 import { canManageEnrollment, enrollmentOf, ensureEnrollments, logEnrollment, suspendStudentAccounts } from "@/lib/matricula";
 import { getSession, type Session } from "@/lib/session";
@@ -115,7 +114,13 @@ async function updateImpl(f: FormData) {
   // El nivel cambia con el curso, pero el número solo se reasigna si el nivel es otro.
   const number = course.level === record.level ? record.number : nextEnrollmentNumber(ensureEnrollments(), course.level, record.modality);
   Object.assign(student, { rut, firstName, lastName, courseId: course.id });
-  Object.assign(record, { ...fields, enrolledOn: fields.enrolledOn ?? record.enrolledOn, level: course.level, number, document: str(f, "document") === "IPE" ? "IPE" : "RUN", notes });
+  // El detalle del domicilio y el RUN del apoderado no están en este formulario: se conservan.
+  const street = (loc: StructuredAddress | undefined, before?: string, after?: string) => (loc && after && before !== after ? { ...loc, street: after.split(",")[0]!.trim().slice(0, 40) } : loc);
+  const guardians = fields.guardians.map((g, i) => {
+    const old = record.guardians[i];
+    return old?.name === g.name ? { ...g, rut: old.rut, location: street(old.location, old.address, g.address) } : g;
+  });
+  Object.assign(record, { ...fields, guardians, location: street(record.location, record.address, fields.address), enrolledOn: fields.enrolledOn ?? record.enrolledOn, level: course.level, number, document: str(f, "document") === "IPE" ? "IPE" : "RUN", notes });
   logEnrollment(s.person.id, "modificar", record, course.id, before, { rut, firstName, lastName, courseId: course.id, ...record, notes: undefined }, str(f, "note") || undefined);
   back(path, { ok: "Ficha actualizada." });
 }

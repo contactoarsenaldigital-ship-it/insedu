@@ -1,9 +1,10 @@
 /**
  * Colegio sintético de demostración (Etapa 1). Determinista por semilla.
- * Todos los nombres y RUT son ficticios: los RUT se generan en el rango 70.000.000-79.999.999
- * con dígito verificador válido y marcados como sintéticos. No corresponden a datos reales usados por INSEDU.
+ * Todos los nombres y RUT son ficticios: los RUT se generan en el rango 44.000.000-46.999.999, sin personas asignadas
+ * hoy y aceptado por el validador del EDE (hasta 47.000.000), con dígito verificador válido. No son datos reales.
  */
 import { computeDv } from "../rut";
+import type { StructuredAddress } from "../enrollment";
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -37,6 +38,17 @@ const LAST = [
 ];
 export const SUBJECTS = ["Lenguaje", "Matemática", "Historia", "Ciencias", "Inglés", "Ed. Física"];
 
+/** Datos del establecimiento que pide el EDE. */
+export type SchoolProfile = {
+  jornada: string;
+  location: StructuredAddress & { building: string };
+  email: string;
+  phone: string;
+  /** Primer y último día de clases del periodo informado. */
+  firstDay: string;
+  lastDay: string;
+};
+
 export type SyntheticSchool = {
   tenantId: string;
   name: string;
@@ -51,6 +63,7 @@ export type SyntheticSchool = {
   schoolDays: string[];
   /** Fecha de corte entre línea base y periodo actual. */
   cutoff: string;
+  profile?: SchoolProfile;
 };
 
 /** Días hábiles (lunes a viernes) entre dos fechas inclusive. */
@@ -115,7 +128,7 @@ export function generateSchool(seed = 2026, opts?: { from?: string; to?: string;
   for (const course of courses) {
     for (let k = 0; k < perCourse; k++) {
       seq++;
-      const body = 70_000_000 + Math.floor(rnd() * 9_999_999);
+      const body = 44_000_000 + Math.floor(rnd() * 1_999_999);
       const id = `student-${String(seq).padStart(3, "0")}`;
       students.push({
         id,
@@ -227,5 +240,13 @@ export function generateSchool(seed = 2026, opts?: { from?: string; to?: string;
     health,
     schoolDays,
     cutoff,
+    profile: {
+      jornada: "Mañana y Tarde",
+      location: { comunaCode: "13119", city: "Santiago", street: "Avenida Los Aromos 1450", unit: "Sin número interior", postalCode: "9250000", building: "Edificio principal" },
+      email: "contacto@colegio-los-aromos.example",
+      phone: "+56 2 2345 6789",
+      firstDay: schoolDays[0]!,
+      lastDay: schoolDays.at(-1)!,
+    },
   };
 }

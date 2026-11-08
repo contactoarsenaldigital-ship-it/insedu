@@ -118,7 +118,29 @@ matrícula de cada estudiante marcado. Supuesto por validar: que la Superintende
 - El PIE se informa como estado «Estudiante PIE» (`RefPersonStatusType`): `RefParticipationType` no tiene ese programa.
 - Los identificadores parten en 100.001 porque la plantilla ya ocupa los bajos. Se agregó la tabla `Course`, a la que apunta `CourseSection`.
 
-**Pendiente:** corregir las reglas que aún fallan en `check` (33 de 99 con los datos iniciales de la maqueta) y confirmar las interpretaciones.
+- Se agregó la jerarquía modalidad → jornada → nivel → rama → sector → especialidad →
+  tipo de curso, el RBD como `RBD` + cinco dígitos con tipo de identificador `MINEDUC` (la vista `jerarquiasList` lo busca así), el período como
+  `BloqueNN`, la firma docente como evento propio de cada clase, un calendario por curso y la hora del bloque en cada sesión de clases.
+- La jornada aún no se registra: se informa «Mañana y Tarde» y el informe lo advierte.
+- `IncidentPerson.Date` va como fecha corta (fn3F9). La hora del hecho queda en `Incident.IncidentTime`; la hora exacta de la firma de anotaciones,
+  entrevistas y entregas se conserva en la plataforma, pero esa tabla no tiene dónde llevarla en el archivo.
+- El segundo nombre o apellido que no existe va como un espacio: el validador convierte el texto vacío en nulo y fn4FA, al concatenar, pierde el
+  nombre completo. Conviene confirmarlo con la Superintendencia.
+
+- En el registro diario, el atraso se informa como presente: fn5E5 y fn6F0 lo cuentan así, y el atraso consta en la asistencia por asignatura.
+
+**Demostración:** el archivo real del colegio ficticio, generado tras reiniciar la demostración, aprueba las 99 reglas del validador oficial. La siembra
+(`lib/demo-ede.ts`, `lib/matricula.ts`) inventa domicilios, contactos, títulos, RUN, horario, clases firmadas, firma de la asistencia diaria y documento de
+matrícula. Los RUN ficticios pasan a 44.000.000-46.999.999, porque el validador rechaza los mayores a 47.000.000. Al ser parte de la siembra, el reinicio los restaura.
+
+**Pendiente para operar con datos reales:**
+- Formularios para capturar lo que hoy solo llena la siembra: domicilio estructurado y RUN del apoderado, dirección, correo, teléfono y jornada del establecimiento,
+  fechas del año escolar, documento de matrícula definitiva y firma de la asistencia diaria.
+- fn6F0 solo descuenta días marcados como `EmergencyDay`, `Holiday`, `Strike` o `TeacherOnlyDay`, y hoy las suspensiones se informan como `Other`.
+- fn5E0 suma el retiro dentro de los totales de la clase si ocurre en plena hora, mientras fn0FB exige ese evento: los retiros a mitad de un bloque quedarían rechazados.
+  Hay que consultarlo con la Superintendencia.
+- La demostración aún no siembra entrevistas, reuniones, entregas ni instrumentos: esas reglas pasan por no tener registros.
+- Confirmar las interpretaciones del diccionario.
 
 ## Registro de matrícula
 

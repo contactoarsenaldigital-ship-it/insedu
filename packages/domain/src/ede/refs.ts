@@ -32,6 +32,10 @@ export type EdeRefKey =
   | "incidentPersonType.administrativo" | "incidentPersonType.otro" | "incidentPersonRole.entrega" | "incidentPersonRole.recibe"
   | "language.spanish" | "incidentBehavior.interesGeneral"
   | "personStatus.pie" | "personLocation.physical" | "orgRelationship.internal"
+  | "orgType.modalidad" | "orgType.jornada" | "orgType.nivel" | "orgType.rama" | "orgType.sector" | "orgType.especialidad" | "orgType.tipoCurso"
+  | "enrollmentStatus.current" | "orgIdentifierType.school"
+  | "country.chile" | "emailType.home" | "emailType.organizational" | "personPhone.mobile" | "institutionPhone.main" | "orgLocationType.physical"
+  | "degreeType.profesional" | "degreeType.magister" | "accreditation.national" | "accreditation.none" | "verification.copia_titulo" | "verification.certificado_oficial"
   | `academicSubject.${EdeSubjectArea}`
   | `disciplinaryAction.${DisciplinaryMeasureType}`;
 
@@ -121,7 +125,28 @@ export const EDE_REF_SOURCES: Record<EdeRefKey, EdeRefSource> = {
   "language.spanish": { lookup: "RefLanguage del español (código 'spa'): por confirmar", note: "fn9F1 exige CourseSection.RefInstructionLanguageId" },
   "incidentBehavior.interesGeneral": { lookup: "RefIncidentBehavior.Description = 'Entrega de documentos de interés general'", note: "fn1FB" },
   "personStatus.pie": { lookup: "RefPersonStatusType.Description = 'Estudiante PIE'", note: "RefParticipationType no tiene PIE. Ninguna regla del validador revisa el PIE" },
+  "orgType.modalidad": { lookup: "RefOrganizationType.Code = 'Modalidad'", note: "jerarquiasList" },
+  "orgType.jornada": { lookup: "RefOrganizationType.Code = 'Jornada'" },
+  "orgType.nivel": { lookup: "RefOrganizationType.Code = 'Nivel'" },
+  "orgType.rama": { lookup: "RefOrganizationType.Code = 'Rama'" },
+  "orgType.sector": { lookup: "RefOrganizationType.Code = 'Sector'" },
+  "orgType.especialidad": { lookup: "RefOrganizationType.Code = 'Especialidad'" },
+  "orgType.tipoCurso": { lookup: "RefOrganizationType.Code = 'TipoCurso'" },
+  "orgIdentifierType.school": { lookup: "RefOrganizationIdentifierType.Code = 'MINEDUC'", note: "jerarquiasList identifica al establecimiento por este tipo" },
+  "enrollmentStatus.current": { lookup: "RefEnrollmentStatus.Description = 'Currently enrolled'", note: "fn2FA" },
   "personLocation.physical": { lookup: "RefPersonLocationType.Code = 'Physical'" },
+  "country.chile": { lookup: "RefCountry.Code = 'CL'", note: "fn2EA, fn3C3" },
+  "emailType.home": { lookup: "RefEmailType.Code = 'Home'", note: "fn3FC" },
+  "emailType.organizational": { lookup: "RefEmailType.Code = 'Organizational'", note: "fn3FC" },
+  "personPhone.mobile": { lookup: "RefPersonTelephoneNumberType.Code = 'Mobile'", note: "fn3FD" },
+  "institutionPhone.main": { lookup: "RefInstitutionTelephoneType.Code = 'Main'", note: "fn3FD" },
+  "orgLocationType.physical": { lookup: "RefOrganizationLocationType.Code = 'Physical'", note: "fn3C3" },
+  "degreeType.profesional": { lookup: "RefDegreeOrCertificateType.Code = '01051'", note: "fn3E1" },
+  "degreeType.magister": { lookup: "RefDegreeOrCertificateType.Code = '01054'", note: "fn3E1" },
+  "accreditation.national": { lookup: "RefHigherEducationInstitutionAccreditationStatus.Code = 'National'", note: "fn3E1" },
+  "accreditation.none": { lookup: "RefHigherEducationInstitutionAccreditationStatus.Code = 'NotAccredited'", note: "fn3E1" },
+  "verification.copia_titulo": { lookup: "RefEducationVerificationMethod.Code = 'DegreeCopy'", note: "fn3E1" },
+  "verification.certificado_oficial": { lookup: "RefEducationVerificationMethod.Code = 'OfficialTranscript'", note: "fn3E1" },
   "orgRelationship.internal": { lookup: "RefOrganizationRelationship.Code = 'InternalOrganization'" },
   "academicSubject.matematica": { lookup: "RefAcademicSubject.Description = 'Mathematics'" },
   "academicSubject.lenguaje": { lookup: "RefAcademicSubject.Description = 'Reading/Language Arts'" },
@@ -142,6 +167,10 @@ export const OFFICIAL_REFS: EdeRefs = {
   "role.estudiante": 6, "role.docente": 5, "role.profesorJefe": 4, "role.apoderado": 15, "role.retira": 18,
   "role.funcionario": 11, // interpretación: Personal administrativo
   "orgType.school": 10, "orgType.course": 21, "orgType.courseSection": 22, "orgType.codigoEnsenanza": 45, "orgType.grado": 46,
+  "orgType.modalidad": 38, "orgType.jornada": 39, "orgType.nivel": 40, "orgType.rama": 41, "orgType.sector": 42, "orgType.especialidad": 43, "orgType.tipoCurso": 44,
+  "enrollmentStatus.current": 2, "orgIdentifierType.school": 17,
+  "country.chile": 45, "emailType.home": 1, "emailType.organizational": 3, "personPhone.mobile": 3, "institutionPhone.main": 2, "orgLocationType.physical": 2,
+  "degreeType.profesional": 3, "degreeType.magister": 10, "accreditation.national": 3, "accreditation.none": 6, "verification.copia_titulo": 3, "verification.certificado_oficial": 1,
   "orgIdSystem.rbd": 48, "orgRelationship.internal": 3,
   "idSystem.run": 51, "idSystem.ipe": 52, "idSystem.listNumber": 54, "idSystem.schoolNumber": 55,
   "sex.male": 1, "sex.female": 2,

@@ -55,7 +55,7 @@ async function addDegreeImpl(f: FormData) {
   const draft = { personId: str(f, "personId"), title: str(f, "title").slice(0, 200), institution: str(f, "institution").slice(0, 200), awardDate: str(f, "awardDate") || undefined };
   const issues = degreeIssues(draft, { today: today(), staffIds: degreeCandidates().map((p) => p.id) });
   if (issues.length) back({ error: issues.join(". ") });
-  const record = { ...draft, id: uuidv7(), idoneidad: f.get("idoneidad") === "on", by: s.person.id, at: new Date().toISOString() };
+  const record = { ...draft, id: uuidv7(), idoneidad: f.get("idoneidad") === "on", degreeType: str(f, "degreeType") === "magister" ? "magister" as const : "profesional" as const, accredited: f.get("accredited") === "on", verification: str(f, "verification") === "certificado_oficial" ? "certificado_oficial" as const : "copia_titulo" as const, by: s.person.id, at: new Date().toISOString() };
   edeDataState().degrees.push(record);
   logEvent({ actor: s.person.id, action: "crear", entity: "titulo_docente", recordId: record.id, after: record });
   back({ ok: "Título registrado." });
