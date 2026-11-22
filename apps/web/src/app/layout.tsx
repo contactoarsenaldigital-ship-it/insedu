@@ -5,6 +5,7 @@ import { RegisterSW } from "@/components/RegisterSW";
 import { SessionPill } from "@/components/SessionPill";
 import { MainNav } from "@/components/MainNav";
 import { Footer } from "@/components/Footer";
+import { UrgentAlerts } from "@/components/UrgentAlerts";
 
 // El menú y la sesión leen el estado compartido de la base: nada se genera en el build.
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="demo-pill" title="Todos los datos son ficticios">Datos ficticios</span>
           </div>
         </header>
+        <UrgentAlerts />
         {children}
         <Footer />
         <RegisterSW />

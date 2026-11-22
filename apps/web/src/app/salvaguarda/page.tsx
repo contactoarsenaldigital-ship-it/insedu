@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DEPOSIT_ROLES, ROLE_LABEL, protocolById } from "@insedu/domain";
+import { ALERT_ROLES, DEPOSIT_ROLES, ROLE_LABEL, protocolById } from "@insedu/domain";
 import { DEPOSIT_LABEL, VaultService } from "@insedu/domain/server";
 import { school } from "@/lib/demo";
 import { fmtDT, studentLabel, who } from "@/lib/format";
@@ -26,6 +26,7 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
   const isHolder = holderId === session.person.id;
   const canDeposit = session.person.roles.some((r) => DEPOSIT_ROLES.includes(r));
   const isDirector = session.person.roles.includes("director");
+  const canAlert = session.person.roles.some((r) => ALERT_ROLES.includes(r) || DEPOSIT_ROLES.includes(r));
 
   const header = (
     <>
@@ -51,6 +52,13 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
               <span className="eyebrow">{session.person.roles.map((r) => ROLE_LABEL[r]).join(" · ")}</span>
               <h3>Entregar un antecedente a Salvaguarda</h3>
               <span className="muted">Entrevistas, derivaciones o revelaciones. Se cifran al enviarlas y usted no podrá volver a leerlas.</span>
+            </Link>
+          )}
+          {canAlert && (
+            <Link href="/salvaguarda/alerta" className="card">
+              <span className="eyebrow">Todo el personal que trabaja con estudiantes</span>
+              <h3>Enviar una alerta preventiva</h3>
+              <span className="muted">Un aviso breve y cifrado sobre lo que observó. Si hay riesgo inminente, avise además en persona.</span>
             </Link>
           )}
           {isDirector && (
@@ -115,8 +123,9 @@ export default async function SafeguardingHome({ searchParams }: { searchParams:
         {!inbox.pendingDeposits.length && <p className="muted">No hay antecedentes pendientes.</p>}
         <div className="grid">
           {inbox.pendingDeposits.map((d) => (
-            <form key={d.id} action={reviewDeposit} className="card">
+            <form key={d.id} action={reviewDeposit} className={`card${d.urgent ? " urgent-card" : ""}`}>
               <input type="hidden" name="depositId" value={d.id} />
+              {d.urgent && <span className="tag alta" style={{ alignSelf: "flex-start", marginBottom: 6 }}>Urgente · riesgo inminente</span>}
               <span className="eyebrow">{DEPOSIT_LABEL[d.kind]} · {fmtDT(d.depositedAt)}</span>
               <h3>{studentLabel(d.studentId)}</h3>
               <span className="muted">Entregado por {who(d.depositedBy)} ({ROLE_LABEL[d.depositedRole as keyof typeof ROLE_LABEL] ?? d.depositedRole})</span>

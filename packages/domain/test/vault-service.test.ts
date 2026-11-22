@@ -77,6 +77,22 @@ describe("depósito sin lectura", () => {
   it("un docente no puede depositar", async () => {
     await expect(vault.deposit(actor("doc", ["teacher"]), "s1", "documento", "Texto suficientemente largo")).rejects.toBeInstanceOf(VaultDenied);
   });
+
+  it("un docente envía una alerta preventiva urgente, que se destaca y sale primero en la bandeja", async () => {
+    const doc = actor("doc", ["teacher"]);
+    await vault.deposit(actor("psi", ["psychologist"]), "s2", "entrevista", "Entrevista de seguimiento sin novedades");
+    expect(vault.pendingUrgentCount(titular())).toBe(0);
+    const r = await vault.deposit(doc, "s1", "alerta", "En clase dijo que no quiere seguir viviendo. Quedó acompañado por inspectoría.", { urgent: true });
+    expect(vault.pendingUrgentCount(titular())).toBe(1);
+    expect(vault.pendingUrgentCount(doc)).toBe(0);
+    expect(vault.inbox(titular()).pendingDeposits[0]).toMatchObject({ id: r.id, kind: "alerta", urgent: true });
+    await expect(vault.readCase(doc, (await vault.reviewDeposit(titular(), r.id)).id, "ver mi alerta")).rejects.toBeInstanceOf(VaultDenied);
+    expect(vault.pendingUrgentCount(titular())).toBe(0);
+  });
+
+  it("la alerta preventiva es breve", async () => {
+    await expect(vault.deposit(actor("doc", ["teacher"]), "s1", "alerta", "x".repeat(601))).rejects.toBeInstanceOf(VaultDenied);
+  });
 });
 
 describe("protocolos", () => {

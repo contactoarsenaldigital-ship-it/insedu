@@ -5,6 +5,8 @@
  * - El suplente formal solo accede mientras la suplencia está activa; en ese periodo
  *   el titular queda suspendido (sin acceso simultáneo permanente).
  * - Los profesionales de apoyo pueden DEPOSITAR antecedentes, pero no leerlos.
+ * - Docentes, profesores jefe, inspectoría y portería solo envían ALERTAS PREVENTIVAS breves,
+ *   también sin poder leerlas después.
  * - Ningún rol obtiene acceso por jerarquía (director, administradores, soporte).
  * - Break-glass: solo ante riesgo inminente u obligación legal, con motivo, alcance
  *   mínimo (un estudiante), vigencia corta y segundo factor.
@@ -51,6 +53,9 @@ export const DEPOSIT_ROLES: Role[] = [
   "nurse",
   "safeguarding_lead",
 ];
+
+/** Quienes conviven a diario con los estudiantes envían alertas preventivas, no otros antecedentes. */
+export const ALERT_ROLES: Role[] = ["teacher", "head_teacher", "inspector", "gatekeeper"];
 
 /** Reautenticación exigida para abrir o exportar contenido confidencial. */
 export const STRONG_AUTH_WINDOW_MS = 5 * 60 * 1000;
@@ -104,8 +109,9 @@ export function canReadVault(
   return deny("Acceso exclusivo del Encargado de Salvaguarda vigente");
 }
 
-export function canDeposit(actor: Actor, assignment: SafeguardingAssignment): Decision {
+export function canDeposit(actor: Actor, assignment: SafeguardingAssignment, kind?: string): Decision {
   if (actor.tenantId !== assignment.tenantId) return deny("Otro establecimiento");
+  if (kind === "alerta" && actor.roles.some((r) => ALERT_ROLES.includes(r))) return { allow: true, basis: "alerta_preventiva" };
   if (!actor.roles.some((r) => DEPOSIT_ROLES.includes(r))) {
     return deny("Rol sin facultad para depositar antecedentes");
   }

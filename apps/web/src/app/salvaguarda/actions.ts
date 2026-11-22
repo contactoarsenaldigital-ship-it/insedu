@@ -110,8 +110,18 @@ async function reviewDepositImpl(f: FormData) {
 async function depositImpl(f: FormData) {
   await run(
     "/salvaguarda/depositar",
-    async (a) => void (await (await vaultService()).deposit(a, str(f, "studentId"), str(f, "kind") as DepositKind, str(f, "text"))),
+    async (a) => void (await (await vaultService()).deposit(a, str(f, "studentId"), str(f, "kind") as DepositKind, str(f, "text"), { urgent: f.get("urgent") === "on" })),
     "Antecedente entregado a Salvaguarda. Por confidencialidad, no podrá volver a verlo.",
+  );
+}
+
+async function sendAlertImpl(f: FormData) {
+  const urgency = str(f, "urgency");
+  if (urgency !== "inminente" && urgency !== "preocupacion") go("/salvaguarda/alerta", { error: "Indique la urgencia de la alerta." });
+  await run(
+    "/salvaguarda/alerta",
+    async (a) => void (await (await vaultService()).deposit(a, str(f, "studentId"), "alerta", str(f, "text"), { urgent: urgency === "inminente" })),
+    "Alerta enviada a Salvaguarda. Por confidencialidad, no podrá volver a verla.",
   );
 }
 
@@ -178,6 +188,9 @@ export async function reviewDeposit(f: FormData) {
   return withState(() => reviewDepositImpl(f));
 }
 
+export async function sendAlert(f: FormData) {
+  return withState(() => sendAlertImpl(f));
+}
 export async function deposit(f: FormData) {
   return withState(() => depositImpl(f));
 }

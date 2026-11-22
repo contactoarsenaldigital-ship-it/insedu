@@ -55,6 +55,7 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
             <label htmlFor="text">Antecedente</label>
             <textarea id="text" name="text" rows={6} required minLength={10} placeholder="Describa los hechos observados o relatados, con fecha y contexto." />
           </div>
+          <label className="check" style={{ marginBottom: 12 }}><input type="checkbox" name="urgent" /> Riesgo inminente: ya avisé en persona y el estudiante está acompañado</label>
           <button className="btn primary">Entregar a Salvaguarda</button>
         </form>
       )}

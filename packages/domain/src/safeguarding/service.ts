@@ -37,7 +37,7 @@ export type VaultCase = {
   sealed: SealedRecord;
 };
 
-export type DepositKind = "entrevista" | "derivacion" | "documento" | "nota_seguimiento" | "revelacion";
+export type DepositKind = "entrevista" | "derivacion" | "documento" | "nota_seguimiento" | "revelacion" | "alerta";
 
 export const DEPOSIT_LABEL: Record<DepositKind, string> = {
   entrevista: "entrevista",
@@ -45,7 +45,11 @@ export const DEPOSIT_LABEL: Record<DepositKind, string> = {
   documento: "documento",
   nota_seguimiento: "nota de seguimiento",
   revelacion: "revelación",
+  alerta: "alerta preventiva",
 };
+
+/** Una alerta preventiva es breve: lo observado, cuándo y dónde. */
+export const ALERT_MAX_LENGTH = 600;
 
 /** Una misma consulta (persona, estudiante, motivo) se registra una vez cada 10 minutos. */
 export const ACCESS_DEDUP_MS = 10 * 60_000;
@@ -59,6 +63,8 @@ export type Deposit = {
   kind: DepositKind;
   sealed: SealedRecord;
   depositedAt: string;
+  /** Riesgo inminente: quien la envía ya actuó en persona; se destaca a la Encargada hasta revisarla. */
+  urgent?: boolean;
   reviewedAt?: string;
   caseId?: string;
 };
@@ -195,6 +201,12 @@ export class VaultService {
     return Boolean(a && currentHolder(a, this.clock()) === actor.userId);
   }
 
+  /** Alertas urgentes sin revisar. Solo cuenta para quien ejerce hoy; no revela contenido ni estudiante. */
+  pendingUrgentCount(actor: Actor): number {
+    if (this.holder(actor.tenantId) !== actor.userId) return 0;
+    return this.store.deposits(actor.tenantId).filter((d) => d.urgent && !d.reviewedAt).length;
+  }
+
   holder(tenantId: string): string | null {
     const a = this.store.assignment(tenantId);
     return a ? currentHolder(a, this.clock()) : null;
@@ -221,9 +233,11 @@ export class VaultService {
     const strip = ({ sealed: _s, ...rest }: VaultCase): CaseSummary => rest;
     return {
       cases: this.store.cases(t).map(strip).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      // Lo urgente primero; dentro de cada grupo, lo más reciente arriba.
       pendingDeposits: this.store
         .deposits(t)
         .filter((d) => !d.reviewedAt)
+        .sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent) || b.depositedAt.localeCompare(a.depositedAt))
         .map(({ sealed: _s, ...rest }) => rest),
       protocols: this.store.protocols(t).sort((a, b) => (a.dueAt ?? "~").localeCompare(b.dueAt ?? "~")),
     };
@@ -304,13 +318,14 @@ export class VaultService {
 
   // ───────────── Depósito sin lectura ─────────────
 
-  async deposit(actor: Actor, studentId: string, kind: DepositKind, text: string) {
-    const d = canDeposit(actor, this.assignment(actor.tenantId));
+  async deposit(actor: Actor, studentId: string, kind: DepositKind, text: string, opts: { urgent?: boolean } = {}) {
+    const d = canDeposit(actor, this.assignment(actor.tenantId), kind);
     if (!d.allow) {
       this.record(actor, "denied", { studentId, reason: d.reason });
       throw new VaultDenied(d.reason);
     }
     if (text.trim().length < 10) throw new VaultDenied("Describa el antecedente (mínimo 10 caracteres)");
+    if (kind === "alerta" && text.trim().length > ALERT_MAX_LENGTH) throw new VaultDenied(`La alerta debe ser breve (máximo ${ALERT_MAX_LENGTH} caracteres)`);
     const id = uuidv7();
     const sealed = await seal(this.keys, actor.tenantId, id, { text: text.trim() });
     const dep: Deposit = {
@@ -322,6 +337,7 @@ export class VaultService {
       kind,
       sealed,
       depositedAt: this.now(),
+      ...(opts.urgent ? { urgent: true } : {}),
     };
     this.store.saveDeposit(dep);
     this.record(actor, "deposit", { studentId, basis: d.basis });

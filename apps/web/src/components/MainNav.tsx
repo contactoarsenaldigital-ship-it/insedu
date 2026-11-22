@@ -38,6 +38,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: "/salud", label: "Salud", roles: ["nurse", "psychologist", "counselor", "safeguarding_lead"] },
       { href: "/salvaguarda", label: "Salvaguarda", roles: ["nurse", "psychologist", "counselor", "social_worker", "safeguarding_lead", "director"] },
+      { href: "/salvaguarda/alerta", label: "Alerta a Salvaguarda", roles: ["teacher", "head_teacher", "inspector", "gatekeeper"] },
     ],
   },
   {

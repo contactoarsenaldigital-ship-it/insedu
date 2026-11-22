@@ -92,6 +92,11 @@ describe("bóveda de Salvaguarda · acceso exclusivo", () => {
   it("los profesionales depositan pero no leen; el docente no deposita", () => {
     expect(canDeposit(actor("psicologa", ["psychologist"]), assignment).allow).toBe(true);
     expect(canDeposit(actor("docente", ["teacher"]), assignment).allow).toBe(false);
+    // Docentes e inspectoría solo envían alertas preventivas.
+    expect(canDeposit(actor("docente", ["teacher"]), assignment, "alerta").allow).toBe(true);
+    expect(canDeposit(actor("inspector", ["inspector"]), assignment, "alerta").allow).toBe(true);
+    expect(canDeposit(actor("docente", ["teacher"]), assignment, "revelacion").allow).toBe(false);
+    expect(canDeposit(actor("apoderado", ["guardian_academic"]), assignment, "alerta").allow).toBe(false);
   });
 
   it("exportar exige motivo", () => {

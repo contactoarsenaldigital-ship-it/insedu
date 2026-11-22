@@ -46,6 +46,8 @@ export async function seedVault() {
   const c = await v.openCase(titular, "student-016", "Seguimiento de bienestar", "Entrevista con la estudiante y su apoderada. Se acuerda acompañamiento semanal con orientación.");
   await v.addNote(titular, c.id, "Segunda entrevista: mejora la asistencia. Se mantiene seguimiento.");
   await v.deposit(psych, "student-041", "entrevista", "El estudiante comenta cambios recientes en su grupo familiar y dificultad para dormir. Sugiero evaluación de Salvaguarda.");
+  const teacher: Actor = { userId: "teacher-2", tenantId, roles: ["teacher", "head_teacher"] };
+  await v.deposit(teacher, "student-033", "alerta", "Desde hace dos semanas no participa en clases y se aísla en los recreos. Hoy entregó la prueba en blanco y no quiso conversar.");
   await v.deposit(nurse, "student-066", "derivacion", "Tercera atención en dos semanas por dolor abdominal sin causa aparente. Derivo para evaluación integral.");
 }
 

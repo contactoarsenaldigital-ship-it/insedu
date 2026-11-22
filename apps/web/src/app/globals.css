@@ -554,3 +554,9 @@ fieldset.plain:disabled .question { opacity: .75; }
 
 /* Lista de asistentes en dos columnas en pantallas anchas. */
 .check-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0 16px; }
+
+/* ───────────── Alertas a Salvaguarda ───────────── */
+.alert-banner { border-left: 4px solid #b3001b; background: #fbebeb; padding: 12px 14px; border-radius: var(--radius-sm); font-size: .92rem; margin: 12px 0; }
+.urgent-strip { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: #b3001b; color: #fff; font-size: .92rem; font-weight: 500; }
+.urgent-strip .btn { background: #fff; color: #b3001b; border-color: #fff; }
+.card.urgent-card { border: 2px solid #b3001b; }
